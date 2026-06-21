@@ -857,8 +857,27 @@ export default function App() {
                   </div>
 
                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 space-y-1.5 text-2xs text-slate-600 font-mono">
-                    <div className="font-bold text-slate-700">Zulässige Autorisierte Weiterleitungs-URI:</div>
-                    <div className="select-all bg-white px-2 py-1 rounded border border-slate-250 text-indigo-600 break-all">{window.location.origin}/auth/callback</div>
+                    <div className="font-bold text-slate-700 flex items-center justify-between">
+                      <span>Authorized Redirect URI / Autorisierte Weiterleitungs-URI:</span>
+                      <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1 py-0.2 rounded shrink-0">Copy</span>
+                    </div>
+                    <div className="select-all bg-white px-2 py-1.5 rounded border border-indigo-200 text-indigo-600 font-semibold break-all outline-hidden">{window.location.origin}/auth/callback</div>
+                    
+                    <div className="pt-2 border-t border-slate-200 text-[10px] font-sans text-slate-500">
+                      <p className="font-bold text-rose-600 flex items-center gap-1">
+                        <span>⚠️</span> How to fix Error 400: redirect_uri_mismatch?
+                      </p>
+                      <p className="leading-snug mt-1 font-sans">
+                        Since your app is running on a custom domain/sandbox, you must add this exact URL to your Google Cloud Console registry:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-1 mt-1.5 pl-0.5 font-sans">
+                        <li>Open the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">Google Cloud Credentials page</a>.</li>
+                        <li>Click on your <strong>OAuth 2.0 Client ID</strong> (Web Application).</li>
+                        <li>Find the field <strong>Authorized redirect URIs</strong> (Autorisierte Weiterleitungs-URIs).</li>
+                        <li>Add the exact URL above (e.g. <code className="bg-slate-100 px-1 rounded select-all font-mono">https://zuri-apartment-finder.onrender.com/auth/callback</code> or current sandbox URL) and click <strong>Save</strong>.</li>
+                        <li>Reload this page and try signing in again!</li>
+                      </ol>
+                    </div>
                   </div>
 
                   <button

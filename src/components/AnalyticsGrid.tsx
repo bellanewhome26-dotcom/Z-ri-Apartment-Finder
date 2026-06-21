@@ -161,7 +161,7 @@ export default function AnalyticsGrid({ data, selectedApartment }: AnalyticsGrid
       <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex flex-col justify-between hover:border-indigo-100 transition-all duration-200">
         <div>
           <div className="flex items-center justify-between">
-            <span className="text-2xs font-semibold text-slate-400 uppercase tracking-wider font-mono">KI & API Kostenkontrolle</span>
+            <span className="text-2xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Render & API Kostenkontrolle</span>
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -174,7 +174,7 @@ export default function AnalyticsGrid({ data, selectedApartment }: AnalyticsGrid
             <span className="text-[7.5pt] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 font-bold whitespace-nowrap">100% KOSTENLOS</span>
           </div>
           <p className="text-3xs text-slate-500 leading-normal mt-1.5">
-            Volle Kontrolle über anfallende Gebühren. Dieses Dashboard nutzt ausschließlich kostenlose Kontingente:
+            Volle Kontrolle über die Hosting- und KI-Gebühren. Dieses Dashboard nutzt ausschließlich kostenlose Kontingente:
           </p>
         </div>
 
@@ -189,13 +189,13 @@ export default function AnalyticsGrid({ data, selectedApartment }: AnalyticsGrid
             <span className="font-mono text-emerald-600 font-semibold">Gratis Kontingent</span>
           </div>
           <div className="flex items-center justify-between text-3xs p-1 px-2 rounded bg-slate-50 border border-slate-100">
-            <span className="text-slate-500 font-medium font-sans">Cloud Run Container</span>
-            <span className="font-mono text-emerald-600 font-semibold">&lt; 2M Aufrufe Mtl.</span>
+            <span className="text-slate-500 font-medium font-sans">Render Web Service</span>
+            <span className="font-mono text-emerald-600 font-semibold">750 Std. / Monat Gratis</span>
           </div>
         </div>
 
         <p className="text-[6.5pt] text-slate-400 mt-2.5 leading-normal italic">
-          *Es entstehen keine versteckten Kosten. Täglicher Abgleich verbraucht ca. 200 input-Tokens (Wert unter $0,0001 CHF, vollständig abgedeckt durch Gemini Free-Plan).
+          *Hinweis: Der Render Free-Server geht nach 15 Min. Inaktivität automatisch in den Ruhezustand (wacht beim nächsten Besuch in ca. 50 Sek. auf). Es entstehen keinerlei Kosten.
         </p>
       </div>
     </div>
