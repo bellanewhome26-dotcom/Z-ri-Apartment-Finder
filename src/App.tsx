@@ -26,6 +26,7 @@ export default function App() {
   const [isOauthModalOpen, setIsOauthModalOpen] = useState<boolean>(false);
   const [customClientId, setCustomClientId] = useState<string>(() => localStorage.getItem('google_client_id') || '');
   const [manualTokenInput, setManualTokenInput] = useState<string>('');
+  const [isArchivingInProgress, setIsArchivingInProgress] = useState<boolean>(false);
 
   // Status Notification states
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -175,6 +176,42 @@ export default function App() {
     setOauthConnected(true);
     setIsOauthModalOpen(false);
     showToast('Aktives Google Workspace-Token erfolgreich verbunden!', 'success');
+  };
+
+  // Archive unrelated alerts from Gmail and local database
+  const handleArchiveUnrelated = async (emailIds: string[]) => {
+    if (!accessToken) {
+      showToast('Bitte verknüpfen Sie zuerst Ihr Google-Konto, um E-Mails zu archivieren.', 'error');
+      return;
+    }
+
+    setIsArchivingInProgress(true);
+    try {
+      const headers: Record<string, string> = { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      };
+
+      const res = await fetch('/api/gmail/archive-unrelated', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ emailIds })
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setDatabase(result.database);
+        showToast(result.message || `${emailIds.length} E-Mails erfolgreich archiviert und bereinigt!`, 'success');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.error || 'Fehler beim Archivieren der E-Mails.', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to archive emails:', error);
+      showToast('Netzwerkfehler beim Versenden des Archivierungsbefehls.', 'error');
+    } finally {
+      setIsArchivingInProgress(false);
+    }
   };
 
   // Synchronize alerts inbox
@@ -718,6 +755,9 @@ export default function App() {
                   emails={database.emails}
                   onSelectApartmentByEmail={handleSelectApartmentByEmail}
                   onClearSimulated={handleClearSimulated}
+                  onArchiveUnrelated={handleArchiveUnrelated}
+                  isArchivingInProgress={isArchivingInProgress}
+                  accessToken={accessToken}
                 />
               )}
             </div>

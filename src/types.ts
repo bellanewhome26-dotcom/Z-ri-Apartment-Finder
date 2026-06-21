@@ -33,6 +33,7 @@ export interface EmailAlert {
   body: string;
   parsed: boolean;
   apartmentId?: string;
+  category?: 'Apartment' | 'Unrelated';
 }
 
 export interface ViewingEvent {

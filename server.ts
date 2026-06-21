@@ -510,6 +510,62 @@ app.post('/api/upload-file', async (req, res) => {
   res.json({ success: true, file: newFile, database: db });
 });
 
+// Helper: Classify whether an email is related to the apartment search or not
+async function classifyEmailContextWithGemini(subject: string, body: string): Promise<'Apartment' | 'Unrelated'> {
+  const ai = getGeminiClient();
+  if (!ai) {
+    // Rules-based fallback if Gemini client is unavailable
+    const textToScan = `${subject} ${body}`.toLowerCase();
+    const hasApartmentKeywords = [
+      'wohnung', 'mietobjekt', 'zimmer', 'flatfox', 'homegate', 'comparis', 'apartment', 'rental', 'visiting', 
+      'viewing', 'besichtigung', 'suchabo', 'suchauftrag', 'immo', 'housing', 'immobilien'
+    ].some(kw => textToScan.includes(kw));
+    return hasApartmentKeywords ? 'Apartment' : 'Unrelated';
+  }
+
+  try {
+    const prompt = `You are an expert Swiss apartment co-pilot system. Analyze the following email title and body snippet to determine if this email is directly related to a real-estate search, apartment rental alerts (from platforms like Homegate, Flatfox, Comparis, etc.), physical flat viewing bookings, tenant application replies, or landlord queries.
+    
+    If the email is about anything else (e.g., general newsletters, personal chatter, bills, banking, shopping, work, security notifications, etc.), it is unrelated.
+    
+    Respond strictly in JSON format: { "isApartmentSearchRelated": boolean, "explanation": "Brief context explanation" }
+    
+    Email Subject: ${subject}
+    Email Body Snippet: ${body.substring(0, 1000)}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isApartmentSearchRelated: { type: Type.BOOLEAN, description: "Whether the email is related to rental/apartment search" },
+            explanation: { type: Type.STRING, description: "Brief reason for classification" }
+          },
+          required: ["isApartmentSearchRelated"]
+        }
+      }
+    });
+
+    if (response && response.text) {
+      const parsedRes = JSON.parse(response.text.trim());
+      return parsedRes.isApartmentSearchRelated ? 'Apartment' : 'Unrelated';
+    }
+  } catch (error) {
+    console.error("Gemini context classification failed, applying heuristic fallback:", error);
+  }
+
+  // Fallback simple keyword sweep
+  const textToScan = `${subject} ${body}`.toLowerCase();
+  const hasApartmentKeywords = [
+    'wohnung', 'mietobjekt', 'zimmer', 'flatfox', 'homegate', 'comparis', 'apartment', 'rental', 'visiting', 
+    'viewing', 'besichtigung', 'suchabo', 'suchauftrag', 'immo', 'housing', 'immobilien'
+  ].some(kw => textToScan.includes(kw));
+  return hasApartmentKeywords ? 'Apartment' : 'Unrelated';
+}
+
 // Helper: Parse email body into structured apartment listing
 async function parseEmailBodyWithGemini(body: string): Promise<Partial<Apartment> | null> {
   const ai = getGeminiClient();
@@ -617,97 +673,96 @@ function extractEmailBodyText(rawMsg: any): string {
   return extracted.plain || extracted.html || rawMsg?.snippet || "";
 }
 
-// Endpoint: POST fetch / simulate email alerts
+// Endpoint: POST fetch email alerts
 app.post('/api/fetch-emails', async (req, res) => {
   const token = req.headers['authorization'] as string;
   const db = readDb();
 
-  // If we have an Authorization Bearer token, attempt real Gmail fetching!
-  if (token && token.startsWith('Bearer ') && token.length > 15) {
-    const accessToken = token.split(' ')[1];
-    try {
-      console.log("Fetching real emails using Gmail API...");
-      // Broad query searching subject headers, sender domain patterns, and keywords
-      const queryTerms = [
-        "from:homegate.ch",
-        "from:flatfox.ch",
-        "from:comparis.ch",
-        "from:homegate-property.ch",
-        "subject:homegate",
-        "subject:flatfox",
-        "subject:comparis",
-        "subject:(Wohnung OR alert OR Flatfox OR Homegate OR Comparis OR Suchabo OR Suchauftrag OR Mietobjekt OR Immobilien)",
-        "\"homegate.ch\"",
-        "\"flatfox.ch\"",
-        "\"comparis.ch\""
-      ];
-      const queryStr = "q=" + encodeURIComponent(queryTerms.join(" OR "));
-      const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&${queryStr}`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
+  // If no access token is provided, return a clean error (stops mail simulation!)
+  if (!token || !token.startsWith('Bearer ') || token.length < 15) {
+    return res.status(401).json({
+      success: false,
+      authError: true,
+      error: "Bitte navigieren Sie zu den Einstellungen (Zahnrad-Symbol) und verknüpfen Sie Ihr Google-Konto, um echte E-Mails live zu zuordnen. Der Simulationsmodus wurde auf Ihren Wunsch deaktiviert."
+    });
+  }
 
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const messages = listData.messages || [];
-        console.log(`Found ${messages.length} real Gmail matching alerts.`);
+  const accessToken = token.split(' ')[1];
+  try {
+    console.log("Fetching live inbox emails from Gmail...");
+    // Retrieve the first 15 messages from the general INBOX label to process, categorize and filter them!
+    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=15&q=label:INBOX`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
 
-        let newParsedCount = 0;
-        for (const msgRef of messages) {
-          // Check if already in db
-          if (db.emails.some(e => e.id === msgRef.id)) {
-            continue;
-          }
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      const messages = listData.messages || [];
+      console.log(`Retrieved ${messages.length} recent messages from Gmail Inbox.`);
 
-          // Fetch message detail
-          const msgRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}?format=full`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-          });
+      let newParsedCount = 0;
+      for (const msgRef of messages) {
+        // Check if message was already captured in db to avoid duplicate processing
+        if (db.emails.some(e => e.id === msgRef.id)) {
+          continue;
+        }
 
-          if (msgRes.ok) {
-            const rawMsg = await msgRes.json();
-            const headers = rawMsg.payload.headers || [];
-            const subject = headers.find((h: any) => h.name.toLowerCase() === 'subject')?.value || "No Subject";
-            const from = headers.find((h: any) => h.name.toLowerCase() === 'from')?.value || "Unknown";
-            const dateVal = headers.find((h: any) => h.name.toLowerCase() === 'date')?.value || new Date().toISOString();
-            const snippet = rawMsg.snippet || "";
+        // Fetch complete message payload
+        const msgRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgRef.id}?format=full`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
 
-            // Get body text via recursive helper
-            const bodyText = extractEmailBodyText(rawMsg);
+        if (msgRes.ok) {
+          const rawMsg = await msgRes.json();
+          const headers = rawMsg.payload.headers || [];
+          const subject = headers.find((h: any) => h.name.toLowerCase() === 'subject')?.value || "No Subject";
+          const from = headers.find((h: any) => h.name.toLowerCase() === 'from')?.value || "Unknown";
+          const dateVal = headers.find((h: any) => h.name.toLowerCase() === 'date')?.value || new Date().toISOString();
+          const snippet = rawMsg.snippet || "";
 
-            // Create email model
-            const emailAlert: EmailAlert = {
-              id: msgRef.id,
-              from,
-              subject,
-              date: new Date(dateVal).toISOString(),
-              snippet,
-              body: bodyText,
-              parsed: false
-            };
+          // Clean body extraction
+          const bodyText = extractEmailBodyText(rawMsg);
 
-            // Parse with Gemini
+          // 1. SMART DIFFERENTIATION: Classify context with Gemini
+          const category = await classifyEmailContextWithGemini(subject, bodyText);
+          console.log(`Email ID ${msgRef.id} classified as: ${category}`);
+
+          // Create base email alert matching our types
+          const emailAlert: EmailAlert = {
+            id: msgRef.id,
+            from,
+            subject,
+            date: new Date(dateVal).toISOString(),
+            snippet,
+            body: bodyText,
+            parsed: false,
+            category: category // store classification!
+          };
+
+          // 2. ONLY extract apartment metadata if related to apartment search
+          if (category === 'Apartment') {
             const parsedDetails = await parseEmailBodyWithGemini(bodyText);
             if (parsedDetails) {
               const aptId = 'apt_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
               const apartment: Apartment = {
                 id: aptId,
-                title: parsedDetails.title || `Apartment in Zurich (${parsedDetails.rooms || 2.5} Z.)`,
-                address: parsedDetails.address || "Zürich, Switzerland",
-                district: parsedDetails.zip ? getDistrictByZip(parsedDetails.zip) : "Greater Zürich",
+                title: parsedDetails.title || `Wohnung in Zürich (${parsedDetails.rooms || 2.5} Z.)`,
+                address: parsedDetails.address || "Zürich, Schweiz",
+                district: parsedDetails.zip ? getDistrictByZip(parsedDetails.zip) : "Grossraum Zürich",
                 zip: parsedDetails.zip || "8000",
                 rooms: parsedDetails.rooms || 2.5,
                 area: parsedDetails.area || 60,
                 price: parsedDetails.price || 2200,
                 availableFrom: parsedDetails.availableFrom || "Nach Vereinbarung",
-                source: parsedDetails.source || "Gmail Request",
-                url: parsedDetails.url || "https://google.com/search?q=" + encodeURIComponent(parsedDetails.address || "Zurich Apartment"),
-                features: parsedDetails.features && parsedDetails.features.length > 0 ? parsedDetails.features : ["Einbauküche", "Balkon"],
+                source: parsedDetails.source || "Gmail",
+                url: parsedDetails.url || "https://google.com/search?q=" + encodeURIComponent(parsedDetails.address || "Zürich Wohnung"),
+                features: parsedDetails.features && parsedDetails.features.length > 0 ? parsedDetails.features : ["Balkon", "Zentral"],
                 description: parsedDetails.description || "In Ihrem Posteingang gefundene Wohnung.",
                 viewingTime: parsedDetails.viewingTime,
                 status: 'New',
                 contactEmail: parsedDetails.contactEmail,
                 emailId: emailAlert.id,
-                notes: "Imported via Gmail Alert synchronization on " + new Date().toLocaleDateString(),
+                notes: "Automatisch aus Live-Gmail-Alert synchronisiert und von Gemini strukturiert.",
                 score: calculateHeuristicScore(parsedDetails.rooms || 2.5, parsedDetails.price || 2200, parsedDetails.zip || "8000"),
                 lat: parsedDetails.lat || 47.3769 + (Math.random() - 0.5) * 0.05,
                 lng: parsedDetails.lng || 8.5417 + (Math.random() - 0.5) * 0.05,
@@ -719,14 +774,14 @@ app.post('/api/fetch-emails', async (req, res) => {
               emailAlert.apartmentId = aptId;
               db.apartments.unshift(apartment);
 
-              // If viewing is present in the text, insert viewing event
+              // If viewing date was stated, log event
               if (parsedDetails.viewingTime && parsedDetails.viewingTime.toLowerCase().includes('2026')) {
-                const viewId = 'vw_' + Date.now();
+                const viewId = 'vw_' + Date.now() + '_' + Math.floor(Math.random() * 100);
                 const viewEvent: ViewingEvent = {
                   id: viewId,
                   apartmentId: aptId,
-                  title: `Viewing: ${parsedDetails.title}`,
-                  start: new Date(Date.now() + 86400000).toISOString().split('T')[0] + "T18:30:00", // simulated match
+                  title: `Besichtigung: ${parsedDetails.title}`,
+                  start: new Date(Date.now() + 86400000).toISOString().split('T')[0] + "T18:30:00",
                   end: new Date(Date.now() + 86400000).toISOString().split('T')[0] + "T19:30:00",
                   location: parsedDetails.address || "Zürich",
                   status: 'Scheduled'
@@ -734,170 +789,92 @@ app.post('/api/fetch-emails', async (req, res) => {
                 db.viewings.unshift(viewEvent);
               }
             }
-
-            db.emails.unshift(emailAlert);
-            newParsedCount++;
           }
-        }
 
-        writeDb(db);
-        return res.json({ success: true, count: newParsedCount, database: db });
-      } else {
-        const errText = await listRes.text();
-        console.error("Gmail API response failure code: " + listRes.status, errText);
-        if (listRes.status === 401 || listRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
-          return res.status(401).json({ 
-            success: false, 
-            authError: true, 
-            error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
-          });
+          db.emails.unshift(emailAlert);
+          newParsedCount++;
         }
-        // Fail down to simulation
       }
-    } catch (apiErr: any) {
-      console.error("Error attempting real Gmail API fetch:", apiErr);
-      const errMsg = apiErr?.message || "";
-      if (errMsg.includes("authError") || errMsg.includes("401") || errMsg.includes("403")) {
-        return res.status(401).json({ 
-          success: false, 
-          authError: true, 
-          error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
+
+      writeDb(db);
+      return res.json({ success: true, count: newParsedCount, database: db });
+    } else {
+      const errText = await listRes.text();
+      console.error("Gmail listing failed with status: " + listRes.status, errText);
+      if (listRes.status === 401 || listRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token")) {
+        return res.status(401).json({
+          success: false,
+          authError: true,
+          error: "Google Workspace-Sitzung abgelaufen oder nicht autorisiert. Bitte verknüpfen Sie Ihr Konto im Einstellungs-Popup neu."
         });
       }
-      // Fail down to simulation
+      return res.status(listRes.status).json({ success: false, error: "Fehler beim Auslesen von Gmail: " + listRes.status });
     }
+  } catch (apiErr: any) {
+    console.error("Critical error in real Gmail API fetch:", apiErr);
+    const errMsg = apiErr?.message || "";
+    if (errMsg.includes("401") || errMsg.includes("403")) {
+      return res.status(401).json({
+        success: false,
+        authError: true,
+        error: "Google Workspace-Sitzung abgelaufen. Bitte im Einstellungsmenü neu verbinden."
+      });
+    }
+    return res.status(500).json({ success: false, error: "Netzwerkfehler zum Gmail-Server: " + errMsg });
+  }
+});
+
+// Endpoint: POST archive unrelated messages in Gmail
+app.post('/api/gmail/archive-unrelated', async (req, res) => {
+  const token = req.headers['authorization'] as string;
+  const { emailIds } = req.body;
+  const db = readDb();
+
+  if (!token || !token.startsWith('Bearer ') || token.length < 15) {
+    return res.status(401).json({ success: false, error: "Bitte verbinden Sie sich zuerst mit Ihrem aktiven Google-Konto." });
   }
 
-  // --- MOCK SIMULATED INBOX REFRESH ---
-  // Add a newly received alert simulation with a 1/3 chance of getting a beautiful newly listed apartment
-  const mockOptions = [
-    {
-      subject: "Ron Orp Zürich: Charmante WG-Zimmer / Atelier nahe Langstrasse",
-      from: "zuerich@ronorp.net",
-      body: `Hoi Bella,
-
-Ein tolles neues Zimmer in einer gemütlichen WG ist im Kreis 4 inseriert worden!
-
-Inserat: Helles 20m² Zimmer in 3-er WG im Seefeld / Kreis 4
-Adresse: Brauerstrasse 18, 8004 Zürich
-Bezug per: 01.09.2026
-Miete: CHF 950.00 (Inklusive Strom & Glasfaser WLAN)
-
-Das Zimmer ist teilmöbliert. Du teilst dir die helle Wohnküche und das geräumige Bad mit Lukas (26, Physikstudent an der ETH) und Sarah (28, Grafikerin im Seefeld). Wir suchen eine unkomplizierte, nette Person.
-
-Besichtigung: 
-Donnerstagabend, 25. Juni, ab 19:30 Uhr. Schreibt uns ein kurzes Mail darüber, wer ihr seid!
-
-Bewerbung: 
-brauerwg-zuerich@outlook.com
-
-Gruss,
-Ron Orp Alert`
-    },
-    {
-      subject: "Comparis Alert: Attraktive 2.5 Zimmer Wohnung im idyllischen Küsnacht",
-      from: "alert@comparis.ch",
-      body: `Guten Tag bellanewhome26,
-
-Neuigkeiten für Ihr Suchgebiet "Zürich Seebachtal/Ettliberg/Küsnacht":
-
-Objekt: Stilvolle Wohnoase - 2.5 Zimmer Wohnung mit Gartensitzplatz
-Adresse: Allmendstrasse 110, 8700 Küsnacht
-Bruttomiete: CHF 2’550.00 (inkl. Nebenkosten)
-Wohnfläche: 70 m²
-Einzugsbereit: Ab 01.11.2026
-
-Vorteile:
-- Ruhige, gehobene Lage auf der Sonnenseite (Goldküste Zürichsee!)
-- Sensationell tiefer Steuerfuss in Küsnacht: unschlagbare 75%! (Sparen Sie hunderte Franken monatlich verglichen mit Zürich City!)
-- Privater, begrünter Gartensitzplatz (Südwestausrichtung)
-- Eigene Waschmaschine und Tumbler in der Wohnung
-- S6/S16 S-Bahn führt in nur 12 Minuten ins Stadtzentrum (HB)
-
-Besichtigungstermine:
-Auf Voranmeldung. Senden Sie uns eine Anfrage mit Ihren Angaben.
-
-Kontakt:
-kuesnacht-wohntraum@vermietungen-goldkueste.ch`
-    }
-  ];
-
-  const selectedMock = mockOptions[Math.floor(Math.random() * mockOptions.length)];
-  const simulatedId = 'em_sim_' + Date.now();
-
-  // Check if subject is already added
-  if (db.emails.some(e => e.subject === selectedMock.subject)) {
-    return res.json({ success: true, count: 0, database: db, message: "No new email alerts found" });
+  if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+    return res.json({ success: true, message: "Keine E-Mails zum Archivieren übergeben." });
   }
 
-  const simulatedEmail: EmailAlert = {
-    id: simulatedId,
-    from: selectedMock.from,
-    subject: selectedMock.subject,
-    date: new Date().toISOString(),
-    snippet: selectedMock.body.substring(0, 100) + '...',
-    body: selectedMock.body,
-    parsed: false
-  };
+  const accessToken = token.split(' ')[1];
+  let successCount = 0;
 
-  // Run Gemini parser to model
-  const parsed = await parseEmailBodyWithGemini(selectedMock.body);
-  if (parsed) {
-    const aptId = 'apt_sim_' + Date.now();
-    const isKuesnacht = selectedMock.subject.includes("Küsnacht");
-    const apartment: Apartment = {
-      id: aptId,
-      title: parsed.title || (isKuesnacht ? "Stilvolle Gartenoase" : "Helles 20m² WG-Zimmer"),
-      address: parsed.address || (isKuesnacht ? "Allmendstrasse 110, 8700 Küsnacht" : "Brauerstrasse 18, 8004 Zürich"),
-      district: isKuesnacht ? "Küsnacht (Goldküste)" : "Kreis 4 (Langstrasse)",
-      zip: parsed.zip || (isKuesnacht ? "8700" : "8004"),
-      rooms: parsed.rooms || (isKuesnacht ? 2.5 : 1),
-      area: parsed.area || (isKuesnacht ? 70 : 20),
-      price: parsed.price || (isKuesnacht ? 2550 : 950),
-      availableFrom: parsed.availableFrom || "2026-11-01",
-      source: isKuesnacht ? "Comparis" : "Ron Orp",
-      url: parsed.url || "https://swisshousing.ch",
-      features: parsed.features || (isKuesnacht ? ["Gartensitzplatz", "Waschturm", "Tiefe Steuern"] : ["Möbliert", "WG", "Zentrale Lage"]),
-      description: parsed.description || selectedMock.body,
-      viewingTime: parsed.viewingTime,
-      status: 'New',
-      contactEmail: parsed.contactEmail,
-      emailId: simulatedId,
-      notes: "Simulated real-time alert received at bellanewhome26@gmail.com. Parsed dynamically via Zürich Apartment AI.",
-      score: calculateHeuristicScore(parsed.rooms || 2.5, parsed.price || 2550, parsed.zip || "8700"),
-      lat: parsed.lat || (isKuesnacht ? 47.3185 : 47.3745),
-      lng: parsed.lng || (isKuesnacht ? 8.5835 : 8.5262),
-      commuteTimeHB: isKuesnacht ? 12 : 5,
-      taxMultiplier: isKuesnacht ? 75 : 119
-    };
+  try {
+    console.log(`Attempting to archive ${emailIds.length} unrelated emails...`);
+    for (const emailId of emailIds) {
+      // In Gmail API, "archiving" means removing the "INBOX" label
+      const modRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${emailId}/modify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          removeLabelIds: ['INBOX']
+        })
+      });
 
-    simulatedEmail.parsed = true;
-    simulatedEmail.apartmentId = aptId;
-    db.apartments.unshift(apartment);
-
-    // If viewing included
-    if (parsed.viewingTime) {
-      const viewEvent: ViewingEvent = {
-        id: 'vw_sim_' + Date.now(),
-        apartmentId: aptId,
-        title: `Viewing: ${apartment.title}`,
-        start: parsed.viewingTime.includes("Donnerstag") 
-          ? new Date(Date.now() + 864 * 4 * 100000).toISOString().split('T')[0] + "T19:30:00"
-          : new Date(Date.now() + 86400000).toISOString().split('T')[0] + "T18:00:00",
-        end: parsed.viewingTime.includes("Donnerstag") 
-          ? new Date(Date.now() + 864 * 4 * 100000).toISOString().split('T')[0] + "T21:30:00"
-          : new Date(Date.now() + 86400000).toISOString().split('T')[0] + "T19:00:00",
-        location: apartment.address,
-        status: 'Scheduled'
-      };
-      db.viewings.unshift(viewEvent);
+      if (modRes.ok) {
+        successCount++;
+        // Remove from local database lists as well so it's instantly cleared!
+        db.emails = db.emails.filter(e => e.id !== emailId);
+      } else {
+        console.warn(`Could not modify/archive Gmail message ${emailId}. Code: ${modRes.status}`);
+      }
     }
+
+    writeDb(db);
+    return res.json({
+      success: true,
+      message: `${successCount} E-Mails wurden erfolgreich archiviert und aus Ihrem Posteingang entfernt!`,
+      database: db
+    });
+  } catch (err: any) {
+    console.error("Failed to batch modify/archive Gmail messages", err);
+    return res.status(500).json({ success: false, error: err.message || "Archive-Vorgang fehlgeschlagen." });
   }
-
-  db.emails.unshift(simulatedEmail);
-  writeDb(db);
-
-  res.json({ success: true, count: 1, message: `Parsed new alert from '${selectedMock.from}'!`, database: db });
 });
 
 // Endpoint: POST create a calendar viewing event in local (and Google if token)
