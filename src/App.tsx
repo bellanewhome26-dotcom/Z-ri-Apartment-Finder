@@ -46,9 +46,16 @@ export default function App() {
   // Listen for Google OAuth callback from popup page
   useEffect(() => {
     const handleOauthMessage = (event: MessageEvent) => {
-      // Validate origin is safe
+      // Validate origin is safe (same origin, or cloud run, or localhost/dev)
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('3000')) {
+      const isAllowedOrigin = 
+        origin === window.location.origin ||
+        origin.endsWith('.run.app') || 
+        origin.includes('localhost') || 
+        origin.includes('3000') ||
+        origin.includes('onrender.com');
+        
+      if (!isAllowedOrigin) {
         return;
       }
       
