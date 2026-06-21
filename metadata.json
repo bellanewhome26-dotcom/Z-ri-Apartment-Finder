@@ -1,0 +1,6 @@
+{
+  "name": "Zurich Apartment Finder",
+  "description": "An interactive dashboard and AI-powered co-pilot to manage, parse, and analyze apartment listings in Greater Zurich, integrated with Gmail alerts, calendar viewings, and uploaded documents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
