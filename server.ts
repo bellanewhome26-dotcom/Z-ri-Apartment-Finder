@@ -430,9 +430,9 @@ app.post('/api/simulated/clear', (req, res) => {
   const db = readDb();
   
   // Filter out simulated and mock-generated emails, apartments, and scheduled viewings
-  db.emails = db.emails.filter(e => !e.id.startsWith('em_sim_'));
-  db.apartments = db.apartments.filter(a => !a.id.startsWith('apt_sim_'));
-  db.viewings = db.viewings.filter(v => !v.id.startsWith('vw_sim_'));
+  db.emails = db.emails.filter(e => !e.id.startsWith('em_sim_') && !e.id.startsWith('em_00'));
+  db.apartments = db.apartments.filter(a => !a.id.startsWith('apt_sim_') && !a.id.startsWith('apt_00'));
+  db.viewings = db.viewings.filter(v => !v.id.startsWith('vw_sim_') && !v.id.startsWith('vw_00'));
   
   writeDb(db);
   res.json({ success: true, database: db, message: "Cleared all simulated/mock alerts! Show only scanned emails." });
