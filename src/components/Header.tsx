@@ -1,14 +1,23 @@
 import React from 'react';
-import { Mail, RefreshCw, Smartphone, Key, Calendar, Sparkles } from 'lucide-react';
+import { Mail, RefreshCw, Smartphone, Key, Calendar, Sparkles, Globe } from 'lucide-react';
 
 interface HeaderProps {
   isSyncing: boolean;
   onSync: () => void;
   oauthConnected: boolean;
   onConnectOauth: () => void;
+  onConfigureScraping: () => void;
+  hasScrapingTokenConfigured: boolean;
 }
 
-export default function Header({ isSyncing, onSync, oauthConnected, onConnectOauth }: HeaderProps) {
+export default function Header({ 
+  isSyncing, 
+  onSync, 
+  oauthConnected, 
+  onConnectOauth,
+  onConfigureScraping,
+  hasScrapingTokenConfigured
+}: HeaderProps) {
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 py-4 px-6 md:px-8 shadow-sm">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -45,7 +54,20 @@ export default function Header({ isSyncing, onSync, oauthConnected, onConnectOau
             }`}
           >
             <Key className="w-3.5 h-3.5" />
-            <span>{oauthConnected ? 'Google Workspace: Verbunden' : 'Gmail & Kalender verbinden'}</span>
+            <span>{oauthConnected ? 'Google verbunden' : 'Google verbinden'}</span>
+          </button>
+
+          {/* Web Scrobbler / Scrape Config button */}
+          <button
+            onClick={onConfigureScraping}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold select-none transition-all duration-200 shadow-sm border ${
+              hasScrapingTokenConfigured
+                ? 'bg-slate-800 hover:bg-slate-755 text-slate-200 border-slate-700/80'
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/50'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Web-Scrobbler</span>
           </button>
 
           {/* Sync Inbox Button */}

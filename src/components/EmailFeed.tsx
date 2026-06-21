@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { EmailAlert } from '../types';
-import { Mail, Check, AlertCircle, Eye, EyeOff, Loader2, Trash2, ShieldX, Sparkles, Filter } from 'lucide-react';
+import { Mail, Check, AlertCircle, Eye, EyeOff, Loader2, Trash2, ShieldX, Sparkles, Filter, Globe, Link, Zap } from 'lucide-react';
 
 interface EmailFeedProps {
   emails: EmailAlert[];
@@ -9,6 +9,8 @@ interface EmailFeedProps {
   onArchiveUnrelated: (emailIds: string[]) => Promise<void>;
   isArchivingInProgress: boolean;
   accessToken: string | null;
+  onScrapeLink?: (url: string, emailId: string) => Promise<any>;
+  isScrapingLinkMap?: Record<string, boolean>;
 }
 
 export default function EmailFeed({
@@ -17,7 +19,9 @@ export default function EmailFeed({
   onClearSimulated,
   onArchiveUnrelated,
   isArchivingInProgress,
-  accessToken
+  accessToken,
+  onScrapeLink,
+  isScrapingLinkMap = {}
 }: EmailFeedProps) {
   const [activeTab, setActiveTab] = useState<'apartments' | 'unrelated'>('apartments');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -225,6 +229,87 @@ export default function EmailFeed({
                   <div className="bg-slate-900 text-slate-100 p-3.5 rounded-lg font-mono text-[8.5pt] leading-relaxed overflow-x-auto max-h-64 whitespace-pre-wrap">
                     {email.body}
                   </div>
+
+                  {/* Web Scrobbler integration section */}
+                  {(() => {
+                    const urlRegex = /(https?:\/\/[^\s]+)/g;
+                    const matches = email.body.match(urlRegex) || [];
+                    const filteredUrls = Array.from(new Set(matches.map(url => {
+                      return url.replace(/[.,;:)\]'"]+$/, '');
+                    }))).filter(url => 
+                      url.includes("homegate.ch") || 
+                      url.includes("flatfox.ch") || 
+                      url.includes("immoscout24.ch") || 
+                      url.includes("comparis.ch") || 
+                      url.includes("immoscout") ||
+                      url.includes("comparis") ||
+                      url.includes("apply") ||
+                      url.includes("mieten") ||
+                      url.includes("property")
+                    );
+
+                    if (filteredUrls.length === 0) return null;
+                    return (
+                      <div className="mt-3 bg-indigo-50/40 rounded-xl p-3 border border-indigo-100/60 animate-fadeIn">
+                        <div className="flex items-center gap-1.5 mb-2 text-slate-800">
+                          <Globe className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+                          <span className="font-display font-bold text-3xs">Web-Scrobbler: Inserat-Link im E-Mail-Text erkannt!</span>
+                          <span className="text-[8px] bg-indigo-100 text-indigo-750 font-semibold px-2 py-0.5 rounded-full ml-auto">
+                            Copilot Scraper Active
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-normal mb-2.5 font-sans">
+                          Möchten Sie, dass der Co-pilot der Spur folgt, die Quellplattform scrobbelt und die kompletten Raumdaten per KI einliest und inseriert?
+                        </p>
+                        <div className="space-y-1.5">
+                          {filteredUrls.map((urlStr, urlIdx) => {
+                            const isScraping = isScrapingLinkMap[urlStr];
+                            let hostname = "Inserat-Link";
+                            try {
+                              hostname = new URL(urlStr).hostname.replace("www.", "");
+                            } catch (e) {}
+
+                            return (
+                              <div key={urlIdx} className="bg-white rounded-lg p-2 border border-slate-150 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs leading-none shadow-2xs hover:border-slate-250 transition duration-150">
+                                <div className="flex items-center gap-2 overflow-hidden py-0.5">
+                                  <Link className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <div className="overflow-hidden">
+                                    <span className="font-bold text-slate-700 block text-[10px] truncate capitalize">{hostname} Portal</span>
+                                    <span className="text-[9px] text-slate-400 block truncate font-mono mt-0.5 select-all" title={urlStr}>{urlStr}</span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onScrapeLink) onScrapeLink(urlStr, email.id);
+                                  }}
+                                  disabled={isScraping || !onScrapeLink}
+                                  className={`px-3 py-1.5 rounded-lg text-4xs font-bold leading-none cursor-pointer flex items-center justify-center gap-1 transition-all active:scale-95 shrink-0 select-none ${
+                                    isScraping 
+                                      ? 'bg-indigo-100 text-indigo-700 cursor-not-allowed'
+                                      : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs'
+                                  }`}
+                                >
+                                  {isScraping ? (
+                                    <>
+                                      <Loader2 className="w-2.5 h-2.5 animate-spin text-indigo-705" />
+                                      <span>Scrobbeln...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Zap className="w-2.5 h-2.5 text-amber-300 fill-amber-300" />
+                                      <span>Scrobbeln & parsen</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {email.parsed && email.apartmentId && email.category !== 'Unrelated' && (
                     <div className="mt-3 flex items-center justify-between text-2xs bg-emerald-50 text-emerald-800 p-2.5 rounded-lg border border-emerald-100">

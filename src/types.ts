@@ -71,6 +71,9 @@ export interface DatabaseState {
   files: UploadedFile[];
   chatHistory: ChatMessage[];
   profile?: CandidateProfile;
+  scrapingToken?: string;
+  scrapingQuotaMax?: number;
+  scrapingQuotaUsed?: number;
 }
 
 export interface CandidateProfile {

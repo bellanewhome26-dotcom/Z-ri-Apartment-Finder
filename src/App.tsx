@@ -8,7 +8,7 @@ import EmailFeed from './components/EmailFeed';
 import DossierManager from './components/DossierManager';
 import CoPilotChat from './components/CoPilotChat';
 import { AnimatePresence, motion } from 'motion/react';
-import { Sparkles, HelpCircle, CheckCircle2, RefreshCw, Calendar, Mail, FileText, Compass, MessageSquare } from 'lucide-react';
+import { Sparkles, HelpCircle, CheckCircle2, RefreshCw, Calendar, Mail, FileText, Compass, MessageSquare, Globe, Link, Zap, Key } from 'lucide-react';
 
 export default function App() {
   const [database, setDatabase] = useState<DatabaseState | null>(null);
@@ -28,6 +28,14 @@ export default function App() {
   const [manualTokenInput, setManualTokenInput] = useState<string>('');
   const [isArchivingInProgress, setIsArchivingInProgress] = useState<boolean>(false);
 
+  // Web-Scrobbler Scraping credentials and states
+  const [isScrapingModalOpen, setIsScrapingModalOpen] = useState<boolean>(false);
+  const [isSavingScraping, setIsSavingScraping] = useState<boolean>(false);
+  const [isScrapingLinkMap, setIsScrapingLinkMap] = useState<Record<string, boolean>>({});
+  const [modalScrapingToken, setModalScrapingToken] = useState<string>('');
+  const [modalQuotaMax, setModalQuotaMax] = useState<number>(1000);
+  const [modalQuotaUsed, setModalQuotaUsed] = useState<number>(58);
+
   // Status Notification states
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('info');
@@ -43,6 +51,15 @@ export default function App() {
       setOauthConnected(true);
     }
   }, []);
+
+  // Synchronize scraping states with loaded database state
+  useEffect(() => {
+    if (database) {
+      setModalScrapingToken(database.scrapingToken || '');
+      setModalQuotaMax(database.scrapingQuotaMax || 1000);
+      setModalQuotaUsed(database.scrapingQuotaUsed || 0);
+    }
+  }, [database]);
 
   // Listen for Google OAuth callback from popup page
   useEffect(() => {
@@ -87,6 +104,57 @@ export default function App() {
     } catch (e) {
       console.error('Failed to load database state from API', e);
       showToast('Offline-Modus', 'error');
+    }
+  };
+
+  const handleScrapeLink = async (url: string, emailId: string) => {
+    setIsScrapingLinkMap(prev => ({ ...prev, [url]: true }));
+    try {
+      const res = await fetch('/api/scrape-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url, emailId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDatabase(data.database);
+        showToast(data.message || "Inserat erfolgreich gescrobbelt!", 'success');
+      } else {
+        showToast("Scraping fehlgeschlagen: " + (data.error || "Unbekannter Fehler"), 'error');
+      }
+    } catch (err) {
+      console.error("Scraping connection failed:", err);
+      showToast("Konnte temporär keine Verbindung zum Scraper aufbauen.", 'error');
+    } finally {
+      setIsScrapingLinkMap(prev => ({ ...prev, [url]: false }));
+    }
+  };
+
+  const handleUpdateScrapingConfig = async (token: string, quotaMax: number, quotaUsed: number) => {
+    setIsSavingScraping(true);
+    try {
+      const res = await fetch('/api/scraping/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token, quotaMax, quotaUsed })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDatabase(data.database);
+        showToast("Scraping-Konfiguration erfolgreich aktualisiert!", 'success');
+        setIsScrapingModalOpen(false);
+      } else {
+        showToast("Aktualisierung fehlgeschlagen: " + (data.error || "Unbekannter Fehler"), 'error');
+      }
+    } catch (err) {
+      console.error("Failed to save config:", err);
+      showToast("Verbindungsfehler beim Speichern der Konfiguration.", 'error');
+    } finally {
+      setIsSavingScraping(false);
     }
   };
 
@@ -663,6 +731,8 @@ export default function App() {
         onSync={handleSyncInbox}
         oauthConnected={oauthConnected}
         onConnectOauth={handleConnectOauth}
+        onConfigureScraping={() => setIsScrapingModalOpen(true)}
+        hasScrapingTokenConfigured={!!(database.scrapingToken && database.scrapingToken !== "sc_active_sandbox_demo_88f9" && !database.scrapingToken.startsWith("sc_demo"))}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8">
@@ -758,6 +828,8 @@ export default function App() {
                   onArchiveUnrelated={handleArchiveUnrelated}
                   isArchivingInProgress={isArchivingInProgress}
                   accessToken={accessToken}
+                  onScrapeLink={handleScrapeLink}
+                  isScrapingLinkMap={isScrapingLinkMap}
                 />
               )}
             </div>
@@ -978,6 +1050,175 @@ export default function App() {
                 >
                   Sandbox aktivieren
                 </button>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modern, elegant Scraping & Web-Scrobbler Configuration Modal */}
+      <AnimatePresence>
+        {isScrapingModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-50 flex items-center justify-center p-4 selection:bg-indigo-600 selection:text-white"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-xl w-full p-6 md:p-8 overflow-y-auto max-h-[90vh]"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                      <Globe className="w-5 h-5 animate-pulse" />
+                    </span>
+                    Wohnungs-Scrobbler & Scraper einrichten
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Option 2 & 3: Plattform-Scrobbling für ImmoScout24, Flatfox, Homegate & Co.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsScrapingModalOpen(false)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+
+              {/* Informative Hybrid-Platform explanation block */}
+              <div className="bg-gradient-to-br from-indigo-50/60 to-slate-100 border border-indigo-100/50 rounded-xl p-4 mb-6 text-xs text-slate-705">
+                <div className="flex gap-2.5">
+                  <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-indigo-950">Wie funktioniert das Web-Scrobbling?</h4>
+                    <p className="text-[10px] text-indigo-900 leading-relaxed mt-1 font-sans">
+                      <strong>Option 2: Lokaler Scrobbler (Baseline)</strong> ruft das HTML des Wohnungsinserats ab, säubert Skripte/Stile und analysiert den echten Textinhalt per Gemini, um Steuer- und Geodaten eigenständig zuzuordnen.
+                    </p>
+                    <p className="text-[10px] text-indigo-900 leading-relaxed mt-1.5 font-sans">
+                      <strong>Option 3: Scraping-Bridges (Anti-Bot Bypass)</strong> integriert Premium-Dienste wie <em>ScraperAPI</em> oder <em>ScrapingBee</em>. Diese bieten rotierende Proxys, um Firewalls auf Schweizer Portalen (ImmoScout24, Flatfox) zu überwinden!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Editable Fields */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-2xs font-bold text-slate-700 mb-1.5">
+                    Premium API-Token für Scraper (ScraperAPI / ScrapingBee / Custom Gateway)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-850 font-mono focus:outline-indigo-500"
+                      placeholder="Geben Sie hier Ihren Scraper-Token ein"
+                      value={modalScrapingToken}
+                      onChange={(e) => setModalScrapingToken(e.target.value)}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <Key className="h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-slate-500 mt-1 leading-snug font-sans">
+                    Geben Sie einen echten Proxy-Token ein oder nutzen Sie den standardmäßig bereitgestellten Sandbox-Testtoken <code className="bg-slate-100 px-1 py-0.2 rounded font-mono">sc_active_sandbox_demo_88f9</code> für sofortige Simulationsergebnisse.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-700 mb-1">
+                      Maximale Abfrageanzahl (Soll-Quota)
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-850 font-mono focus:outline-indigo-505"
+                      value={modalQuotaMax}
+                      onChange={(e) => setModalQuotaMax(Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-700 mb-1">
+                      Bereits beansprucht (Ist-Quota)
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-850 font-mono focus:outline-indigo-505"
+                      value={modalQuotaUsed}
+                      onChange={(e) => setModalQuotaUsed(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                {/* Quota Progress viz */}
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <div className="flex justify-between items-center mb-1.5 font-sans">
+                    <span className="text-2xs font-bold text-slate-700">Verbleibende Scrobbler-Kapazität:</span>
+                    <span className="text-2xs font-bold text-indigo-600 font-mono">
+                      {Math.max(0, modalQuotaMax - modalQuotaUsed)} / {modalQuotaMax} Aufrufe übrig
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden shadow-inner">
+                    <div 
+                      className={`h-full transition-all duration-300 rounded-full ${
+                        (modalQuotaMax - modalQuotaUsed) / modalQuotaMax < 0.25 ? 'bg-rose-500' :
+                        (modalQuotaMax - modalQuotaUsed) / modalQuotaMax < 0.5 ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.max(0, Math.min(100, ((modalQuotaMax - modalQuotaUsed) / modalQuotaMax) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Hybrid / Compatibility Answer container */}
+                <div className="bg-slate-900 text-slate-200 rounded-xl p-4 border border-slate-850">
+                  <span className="text-[8px] uppercase tracking-wider font-bold bg-slate-800 text-indigo-300 px-2 py-0.5 rounded-md">
+                    System-Antwort: Kompatibilität
+                  </span>
+                  <h4 className="text-[11px] font-bold text-white mt-2 flex items-center gap-1.5">
+                    <HelpCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>Funktioniert das für alle Webseiten oder ist das eine Einzelfalllösung?</span>
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-1.5 leading-normal font-sans text-slate-300">
+                    Das System nutzt einen <strong>hybriden Ansatz</strong>:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 mt-1 font-sans text-[3xs] text-slate-450 pl-0.5">
+                    <li><strong>Universelle Struktur-Datenbank per KI:</strong> Da die KI-Modelle das HTML inhaltsbasiert erfassen, sind starre Code-Regeln überflüssig. Sie versteht Zimmer, Preis und Lage auf <em>jeder</em> realen Wohnungssite sofort.</li>
+                    <li><strong>Einzelfall-Bypass für Anti-Scraping-Firewalls:</strong> Große Plattformen (z.B. ImmoScout24) blockieren einfache Abfragen mit Schutzschilden. Ein Premium-Proxy (ScraperAPI/ScrapingBee) überwindet diese im Einzelfall zuverlässig.</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setIsScrapingModalOpen(false)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg text-xs leading-none transition cursor-pointer"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={() => handleUpdateScrapingConfig(modalScrapingToken, modalQuotaMax, modalQuotaUsed)}
+                    disabled={isSavingScraping}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-xs leading-none transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isSavingScraping ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Sichern...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Einstellungen sichern</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
             </motion.div>
