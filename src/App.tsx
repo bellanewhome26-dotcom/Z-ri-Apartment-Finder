@@ -90,6 +90,44 @@ export default function App() {
     return () => window.removeEventListener('message', handleOauthMessage);
   }, []);
 
+  // CROSS-ORIGIN SANDBOX BACKUP EFFECT: Listen for storage change events
+  // This allows the auth popup to simply write to localStorage, and the main window automatically detects it
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'google_access_token' && e.newValue) {
+        const token = e.newValue;
+        if (token && token.length > 15 && token !== accessToken) {
+          setAccessToken(token);
+          setOauthConnected(true);
+          setIsOauthModalOpen(false);
+          showToast('Google Workspace erfolgreich synchronisiert!', 'success');
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [accessToken]);
+
+  // SECONDARY RETRY BACKUP ENGINE: Active polling synchronizer
+  // Polling checks localStorage once a second while the OAuth Dialog is active
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isOauthModalOpen) {
+      interval = setInterval(() => {
+        const token = localStorage.getItem('google_access_token');
+        if (token && token.length > 15 && token !== accessToken) {
+          setAccessToken(token);
+          setOauthConnected(true);
+          setIsOauthModalOpen(false);
+          showToast('Google Workspace erfolgreich verbunden!', 'success');
+        }
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOauthModalOpen, accessToken]);
+
   const fetchDatabase = async () => {
     try {
       const res = await fetch('/api/database');
@@ -206,7 +244,7 @@ export default function App() {
       redirect_uri: redirectUri,
       response_type: 'token',
       scope: scopes,
-      prompt: 'consent'
+      prompt: 'select_account' // Bypass repetitive full scope-approval screens if already consented!
     });
 
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
