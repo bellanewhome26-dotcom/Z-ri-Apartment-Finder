@@ -128,19 +128,77 @@ export default function App() {
     };
   }, [isOauthModalOpen, accessToken]);
 
+  // Synchronize database to client-side localStorage backup for Render/deployment resilience
+  useEffect(() => {
+    if (database) {
+      localStorage.setItem('zuerich_app_db_backup', JSON.stringify(database));
+    }
+  }, [database]);
+
   const fetchDatabase = async () => {
     try {
       const res = await fetch('/api/database');
       if (res.ok) {
-        const data: DatabaseState = await res.json();
-        setDatabase(data);
+        const serverData: DatabaseState = await res.json();
+        
+        // Retrieve local backup if exists
+        const localBackupStr = localStorage.getItem('zuerich_app_db_backup');
+        if (localBackupStr) {
+          try {
+            const localData: DatabaseState = JSON.parse(localBackupStr);
+            
+            // Check if server database has been reset or initialized, and localData has richer details
+            const isServerClean = serverData.apartments.length <= 4 && serverData.files.length <= 2 && serverData.emails.length <= 4;
+            const hasLocalNewData = (localData.apartments && localData.apartments.length > serverData.apartments.length) || 
+                                     (localData.files && localData.files.length > serverData.files.length) ||
+                                     (localData.emails && localData.emails.length > serverData.emails.length) ||
+                                     (localData.profile && JSON.stringify(localData.profile) !== JSON.stringify(serverData.profile));
+            
+            if (isServerClean && hasLocalNewData) {
+              console.log("Render redeployment / restart detected. Restoring database state from local browser storage...");
+              const restoreRes = await fetch('/api/database/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(localData)
+              });
+              if (restoreRes.ok) {
+                const restoreData = await restoreRes.json();
+                if (restoreData.success) {
+                  setDatabase(restoreData.database);
+                  showToast('Ihre Daten wurden sicher aus dem Browser-Backup wiederhergestellt!', 'success');
+                  if (restoreData.database.apartments.length > 0 && !selectedApartmentId) {
+                    setSelectedApartmentId(restoreData.database.apartments[0].id);
+                  }
+                  return;
+                }
+              }
+            }
+          } catch (jsonErr) {
+            console.error("Local backup retrieval/parsing failed:", jsonErr);
+          }
+        }
+
+        setDatabase(serverData);
         // Default select first apartment
-        if (data.apartments.length > 0 && !selectedApartmentId) {
-          setSelectedApartmentId(data.apartments[0].id);
+        if (serverData.apartments.length > 0 && !selectedApartmentId) {
+          setSelectedApartmentId(serverData.apartments[0].id);
         }
       }
     } catch (e) {
       console.error('Failed to load database state from API', e);
+      // Absolute fallback if everything is offline
+      const localBackupStr = localStorage.getItem('zuerich_app_db_backup');
+      if (localBackupStr) {
+        try {
+          const localData = JSON.parse(localBackupStr);
+          setDatabase(localData);
+          showToast('Offline-Modus: Daten lokal aus dem Browser geladen', 'info');
+          if (localData.apartments && localData.apartments.length > 0 && !selectedApartmentId) {
+            setSelectedApartmentId(localData.apartments[0].id);
+          }
+          return;
+        } catch (_) {}
+      }
       showToast('Offline-Modus', 'error');
     }
   };

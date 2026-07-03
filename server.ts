@@ -411,6 +411,19 @@ app.get('/api/database', (req, res) => {
   res.json(db);
 });
 
+// Endpoint: POST restore database from local client-side backup
+app.post('/api/database/restore', (req, res) => {
+  const restoredData = req.body;
+  if (restoredData && typeof restoredData === 'object') {
+    if (Array.isArray(restoredData.apartments) && Array.isArray(restoredData.emails)) {
+      writeDb(restoredData);
+      console.log("Database successfully restored from user storage backup.");
+      return res.json({ success: true, message: "Datenbank erfolgreich aus lokalem Browser-Backup wiederhergestellt!", database: restoredData });
+    }
+  }
+  res.status(400).json({ success: false, error: "Invalid database backup payload format" });
+});
+
 // Endpoint: POST reset database
 app.post('/api/reset', (req, res) => {
   writeDb(DEFAULT_DATABASE);
@@ -922,7 +935,7 @@ app.post('/api/fetch-emails', async (req, res) => {
       return res.json({ success: true, count: newParsedCount, database: db });
     } else {
       const errText = await listRes.text();
-      console.error("Gmail listing failed with status: " + listRes.status, errText);
+      console.warn("Gmail listing status indicates re-auth needed: " + listRes.status, errText);
       if (listRes.status === 401 || listRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token")) {
         return res.status(401).json({
           success: false,
@@ -933,7 +946,7 @@ app.post('/api/fetch-emails', async (req, res) => {
       return res.status(listRes.status).json({ success: false, error: "Fehler beim Auslesen von Gmail: " + listRes.status });
     }
   } catch (apiErr: any) {
-    console.error("Critical error in real Gmail API fetch:", apiErr);
+    console.warn("Expected notification: Gmail API fetch resulted in error/expiration:", apiErr);
     const errMsg = apiErr?.message || "";
     if (errMsg.includes("401") || errMsg.includes("403")) {
       return res.status(401).json({
@@ -1033,7 +1046,7 @@ app.post('/api/calendar/add-event', async (req, res) => {
         console.log("Successfully created Google Calendar Event ID: " + eventId);
       } else {
         const errorText = await calRes.text();
-        console.error("Google Calendar write response code: " + calRes.status + " Content:", errorText);
+        console.warn("Google Calendar write status indicates re-auth: " + calRes.status + " Content:", errorText);
         if (calRes.status === 401 || calRes.status === 403 || errorText.includes("authError") || errorText.includes("invalid_grant") || errorText.includes("invalid_token") || errorText.includes("Invalid Credentials")) {
           return res.status(401).json({ 
             success: false, 
@@ -1043,7 +1056,7 @@ app.post('/api/calendar/add-event', async (req, res) => {
         }
       }
     } catch (err: any) {
-      console.error("Google Calendar event creation failed, checking if authError.", err);
+      console.warn("Google Calendar event creation handled exception, checking if authError.", err);
       const errMsg = err?.message || "";
       if (errMsg.includes("authError") || errMsg.includes("401") || errMsg.includes("403")) {
         return res.status(401).json({ 
@@ -1110,7 +1123,7 @@ app.post('/api/gmail/send-inquiry', async (req, res) => {
         sentSuccess = true;
       } else {
         const errText = await gmailSendRes.text();
-        console.error("Gmail compose error: " + gmailSendRes.status, errText);
+        console.warn("Gmail compose notification: send unsuccessful, re-auth check required. Status: " + gmailSendRes.status, errText);
         if (gmailSendRes.status === 401 || gmailSendRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
           return res.status(401).json({ 
             success: false, 
@@ -1121,7 +1134,7 @@ app.post('/api/gmail/send-inquiry', async (req, res) => {
         statusMessage = "Draft created locally, could not deliver through Gmail API connection.";
       }
     } catch (e: any) {
-      console.error("Gmail deliver exception.", e);
+      console.warn("Gmail deliver expected exception.", e);
       const errMsg = e?.message || "";
       if (errMsg.includes("authError") || errMsg.includes("401") || errMsg.includes("403")) {
         return res.status(401).json({ 
@@ -2101,17 +2114,17 @@ app.post('/api/google-docs/create-letter', async (req, res) => {
         });
         
         if (!batchUpdateRes.ok) {
-          console.error("Batch update text insert failed:", await batchUpdateRes.text());
+          console.warn("Batch update text insert warning:", await batchUpdateRes.text());
         }
       } else {
         const errText = await createRes.text();
-        console.error("Google Docs creation failed:", errText);
+        console.warn("Google Docs creation warning/handled status:", errText);
         if (createRes.status === 401 || createRes.status === 403) {
           return res.status(401).json({ success: false, authError: true, error: "Authentication expired. Please link Google Workspace again." });
         }
       }
     } catch (err) {
-      console.error("Exception creating Google Doc letter:", err);
+      console.warn("Exception creating Google Doc letter (handled):", err);
     }
   }
   

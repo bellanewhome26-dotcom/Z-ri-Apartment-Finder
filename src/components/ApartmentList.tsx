@@ -114,7 +114,7 @@ export default function ApartmentList({
                 </div>
 
                 {/* Score Circle Badge */}
-                <div role="img" aria-label={`Match score: ${apt.score}%`}_ className={`flex flex-col items-center justify-center border rounded-xl px-2.5 py-1.5 ${scoreColorClass} shrink-0`}>
+                <div role="img" aria-label={`Match score: ${apt.score}%`} className={`flex flex-col items-center justify-center border rounded-xl px-2.5 py-1.5 ${scoreColorClass} shrink-0`}>
                   <span className="text-sm font-extrabold font-display leading-none">{apt.score}%</span>
                   <span className="text-[7pt] uppercase tracking-wider font-semibold font-mono mt-0.5">Treffer</span>
                 </div>
