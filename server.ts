@@ -357,6 +357,96 @@ How can I help you refine your apartment hunt or prepare your next viewing calen
   scrapingQuotaUsed: 58
 };
 
+// High-precision URL extractor to parse real listing URLs from alert email bodies
+function extractListingUrlFromText(text: string): string | null {
+  if (!text) return null;
+  // Match absolute URLs
+  const urlRegex = /(https?:\/\/[^\s\>\"\'\)\(\[\]\<\}\{]+)/g;
+  const matches = text.match(urlRegex) || [];
+  
+  const badPatterns = [
+    /abmelden/i,
+    /unsubscribe/i,
+    /suchabos/i,
+    /suchabo/i,
+    /suchauftrag/i,
+    /share/i,
+    /whatsapp/i,
+    /facebook/i,
+    /instagram/i,
+    /linkedin/i,
+    /youtube/i,
+    /tiktok/i,
+    /trustpilot/i,
+    /google\.page/i,
+    /review/i,
+    /logo/i,
+    /mailto:/i,
+    /wf\/unsubscribe/i,
+    /inserat-online-erfassen/i,
+    /privacy/i,
+    /impressum/i
+  ];
+  
+  const candidateUrls = matches.map(url => {
+    let u = url.trim();
+    if (u.startsWith('<') && u.endsWith('>')) {
+      u = u.substring(1, u.length - 1);
+    }
+    // strip trailing punctuation
+    u = u.replace(/[\)\]\.\,\:\>]+$/, '');
+    return u;
+  }).filter(url => {
+    return !badPatterns.some(pat => pat.test(url));
+  });
+
+  const priorityPatterns = [
+    /immoscout24\.ch\/mieten\//i,
+    /homegate\.ch\/mieten\//i,
+    /comparis\.ch\/comparis\/dispatcher\/go/i,
+    /flatfox\.ch\/de\/listing\//i,
+    /neubauprojekte\.ch\/.*mieten/i,
+    /sendgrid\.net\/ls\/click/i
+  ];
+
+  for (const pat of priorityPatterns) {
+    const found = candidateUrls.find(u => pat.test(u));
+    if (found) return found;
+  }
+
+  if (candidateUrls.length > 0) {
+    return candidateUrls[0];
+  }
+
+  return null;
+}
+
+// Retroactively fix apartment URLs using email bodies if they are broken/google links
+function repairApartmentUrls(db: DatabaseState): boolean {
+  let modified = false;
+  if (!db || !db.apartments) return false;
+  
+  for (const apt of db.apartments) {
+    const isGoogleSearch = apt.url && apt.url.includes("google.com/search");
+    const isUnsubscribe = apt.url && (apt.url.includes("unsubscribe") || apt.url.includes("abmelden") || apt.url.includes("suchabos"));
+    const isInvalid = !apt.url || isGoogleSearch || isUnsubscribe;
+    
+    if (isInvalid) {
+      // Find matching email alert
+      const email = db.emails?.find(em => em.id === apt.emailId || em.apartmentId === apt.id);
+      if (email && email.body) {
+        const realUrl = extractListingUrlFromText(email.body);
+        if (realUrl) {
+          console.log(`[MIGRATION] Repaired URL for apartment '${apt.title}': ${apt.url} -> ${realUrl}`);
+          apt.url = realUrl;
+          modified = true;
+        }
+      }
+    }
+  }
+  return modified;
+}
+
 // Retrieve Database
 function readDb(): DatabaseState {
   try {
@@ -386,6 +476,12 @@ function readDb(): DatabaseState {
       parsed.scrapingToken = "sc_active_sandbox_demo_88f9";
       parsed.scrapingQuotaMax = 1000;
       parsed.scrapingQuotaUsed = 58;
+    }
+    
+    // Repair any faulty apartment urls retroactively
+    const repaired = repairApartmentUrls(parsed);
+    if (repaired) {
+      console.log("[MIGRATION] Database URLs successfully repaired.");
     }
     
     fs.writeFileSync(DB_FILE_PATH, JSON.stringify(parsed, null, 2), 'utf-8');
@@ -621,6 +717,7 @@ ${body}`;
               price: { type: Type.NUMBER, description: "Total monthly rental price in CHF (including utilities charges / Nebenkosten)" },
               availableFrom: { type: Type.STRING, description: "Date available or description like 'Sofort' or 'Ab 01.08.2026'" },
               source: { type: Type.STRING, description: "Rental provider source like Homegate, Comparis, Flatfox, or Ron Orp" },
+              url: { type: Type.STRING, description: "Real-estate listing details/redirect URL if present in the body. Look for SendGrid links (ct.sendgrid.net) or portal listing links (homegate.ch/mieten, immoscout24.ch/mieten, comparis.ch/comparis/dispatcher/go, flatfox.ch/de/listing). Avoid unsubscribe/abmelden links." },
               features: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific features (Balcony, Garden, Waschturm, Pool, Lake view, Modern, etc.) in German or English" },
               description: { type: Type.STRING, description: "Brief consolidated summary of apartment traits in German or English" },
               viewingTime: { type: Type.STRING, description: "Scheduled viewing hour, date or process if listed" },
@@ -741,6 +838,7 @@ ${body}`;
     price: inferredPrice,
     availableFrom: "Nach Vereinbarung",
     source: inferredSource,
+    url: extractListingUrlFromText(body) || "https://google.com/search?q=" + encodeURIComponent(inferredAddress),
     features: ["Balkon", "Einbauküche", "Sonnige Lage", "Zentral"],
     description: "In Ihrem Inbox-Feed gefundene Wohnung, strukturiert durch den cleveren Schweizer Backup-Parser (KI Quota-Bypass).",
     viewingTime: inferredViewing || "Montag, 18:00 - 19:30 Uhr",
@@ -890,7 +988,9 @@ app.post('/api/fetch-emails', async (req, res) => {
                 price: parsedDetails.price || 2200,
                 availableFrom: parsedDetails.availableFrom || "Nach Vereinbarung",
                 source: parsedDetails.source || "Gmail",
-                url: parsedDetails.url || "https://google.com/search?q=" + encodeURIComponent(parsedDetails.address || "Zürich Wohnung"),
+                url: (parsedDetails.url && !parsedDetails.url.includes("google.com/search") && !parsedDetails.url.includes("abmelden") && !parsedDetails.url.includes("unsubscribe"))
+                  ? parsedDetails.url
+                  : (extractListingUrlFromText(bodyText) || "https://google.com/search?q=" + encodeURIComponent(parsedDetails.address || "Zürich Wohnung")),
                 features: parsedDetails.features && parsedDetails.features.length > 0 ? parsedDetails.features : ["Balkon", "Zentral"],
                 description: parsedDetails.description || "In Ihrem Posteingang gefundene Wohnung.",
                 viewingTime: parsedDetails.viewingTime,
@@ -2332,6 +2432,13 @@ app.get(['/auth/callback', '/auth/callback/'], (req: express.Request, res: expre
 });
 
 async function startServer() {
+  // Trigger retroactive database URL repair migration on startup
+  try {
+    readDb();
+  } catch (dbErr) {
+    console.error("Failed to run database startup repair:", dbErr);
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
