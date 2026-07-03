@@ -1104,9 +1104,10 @@ app.post('/api/gmail/send-inquiry', async (req, res) => {
   if (token && token.startsWith('Bearer ') && token.length > 15) {
     const accessToken = token.split(' ')[1];
     try {
-      // Simple raw format RFC822 for Gmail API
-      const rfcDetails = `To: ${toEmail}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset="utf-8"\r\nMIME-Version: 1.0\r\n\r\n${text}`;
-      const base64Raw = Buffer.from(rfcDetails).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      // Encode subject using RFC 2047 for safe UTF-8 headers
+      const encodedSubject = `=?utf-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
+      const rfcDetails = `To: ${toEmail}\r\nSubject: ${encodedSubject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset="utf-8"\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${text}`;
+      const base64Raw = Buffer.from(rfcDetails, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
       if (sendDirectly) {
         console.log("Sending real inquiry email via Gmail API...");
