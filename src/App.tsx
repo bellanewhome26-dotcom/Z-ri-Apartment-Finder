@@ -1089,7 +1089,20 @@ export default function App() {
                       className={`w-full text-xs bg-slate-50 border rounded-lg px-3 py-2 text-slate-850 font-mono focus:outline-indigo-500 ${getClientIdError(customClientId) ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200'}`}
                       placeholder="z.B. 1234567-abcdefg.apps.googleusercontent.com"
                       value={customClientId}
-                      onChange={(e) => setCustomClientId(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cleaned = val.trim();
+                        if (cleaned.startsWith('GOCSPX-')) {
+                          setCustomClientId(cleaned);
+                          return;
+                        }
+                        const match = cleaned.match(/([0-9a-zA-Z\.\-_]+\.apps\.googleusercontent\.com)/);
+                        if (match) {
+                          setCustomClientId(match[1]);
+                        } else {
+                          setCustomClientId(val);
+                        }
+                      }}
                     />
                     {getClientIdError(customClientId) && (
                       <p className="mt-1.5 text-[10px] text-rose-600 font-sans font-medium leading-snug bg-rose-50 border border-rose-100 rounded-md p-2">
