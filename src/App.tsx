@@ -275,11 +275,33 @@ export default function App() {
     setIsOauthModalOpen(true);
   };
 
+  // Helper to validate user-entered client ID
+  const getClientIdError = (id: string) => {
+    if (!id) return null;
+    const trimmed = id.trim();
+    if (trimmed.startsWith('GOCSPX-')) {
+      return 'Sie haben das "Client-Geheimnis" (Client Secret) anstelle der Client-ID eingegeben! Bitte kopieren Sie die Client-ID (endet auf .apps.googleusercontent.com).';
+    }
+    if (!trimmed.endsWith('.apps.googleusercontent.com')) {
+      return 'Eine gültige Google Client-ID muss auf ".apps.googleusercontent.com" enden.';
+    }
+    if (trimmed.includes(' ')) {
+      return 'Die Client-ID darf keine Leerzeichen enthalten.';
+    }
+    return null;
+  };
+
   // Triggers secondary Google popup
   const handleTriggerGooglePopup = () => {
     const clientIdToUse = customClientId.trim();
     if (!clientIdToUse) {
       showToast('Bitte geben Sie eine gültige Google-Client-ID ein.', 'error');
+      return;
+    }
+
+    const validationError = getClientIdError(clientIdToUse);
+    if (validationError) {
+      showToast(validationError, 'error');
       return;
     }
 
@@ -1064,11 +1086,16 @@ export default function App() {
                     </label>
                     <input
                       type="text"
-                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-850 font-mono focus:outline-indigo-500"
+                      className={`w-full text-xs bg-slate-50 border rounded-lg px-3 py-2 text-slate-850 font-mono focus:outline-indigo-500 ${getClientIdError(customClientId) ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200'}`}
                       placeholder="z.B. 1234567-abcdefg.apps.googleusercontent.com"
                       value={customClientId}
                       onChange={(e) => setCustomClientId(e.target.value)}
                     />
+                    {getClientIdError(customClientId) && (
+                      <p className="mt-1.5 text-[10px] text-rose-600 font-sans font-medium leading-snug bg-rose-50 border border-rose-100 rounded-md p-2">
+                        ⚠️ {getClientIdError(customClientId)}
+                      </p>
+                    )}
                   </div>
 
                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 space-y-1.5 text-2xs text-slate-600 font-mono">
