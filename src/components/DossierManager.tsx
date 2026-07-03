@@ -10,6 +10,7 @@ interface DossierManagerProps {
   onImportGoogleDoc: (fileId: string, fileName: string) => Promise<void>;
   isImportingDoc: boolean;
   onUpdateProfile?: (profile: Partial<CandidateProfile>) => Promise<void>;
+  onAuthError?: () => void;
 }
 
 export default function DossierManager({ 
@@ -19,7 +20,8 @@ export default function DossierManager({
   accessToken, 
   onImportGoogleDoc, 
   isImportingDoc,
-  onUpdateProfile
+  onUpdateProfile,
+  onAuthError
 }: DossierManagerProps) {
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [expandedFileId, setExpandedFileId] = useState<string | null>(null);
@@ -92,6 +94,10 @@ export default function DossierManager({
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
       const res = await fetch('/api/google-docs/list', { headers });
+      if (res.status === 401) {
+        onAuthError?.();
+        return;
+      }
       if (res.ok) {
         const result = await res.json();
         setGoogleDocs(result.files || []);

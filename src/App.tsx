@@ -400,6 +400,14 @@ export default function App() {
     }
   };
 
+  const handleAuthError = () => {
+    localStorage.removeItem('google_access_token');
+    setAccessToken(null);
+    setOauthConnected(false);
+    showToast('Die Google Workspace-Sitzung ist abgelaufen oder ungültig. Bitte verbinden Sie sich erneut.', 'error');
+    setIsOauthModalOpen(true);
+  };
+
   // Synchronize alerts inbox
   const handleSyncInbox = async () => {
     setIsSyncing(true);
@@ -419,11 +427,7 @@ export default function App() {
       if (res.status === 401) {
         const result = await res.json().catch(() => ({}));
         if (result.authError) {
-          localStorage.removeItem('google_access_token');
-          setAccessToken(null);
-          setOauthConnected(false);
-          showToast('Die Google Workspace-Sitzung ist abgelaufen oder ungültig. Bitte verbinden Sie sich erneut.', 'error');
-          setIsOauthModalOpen(true);
+          handleAuthError();
           return;
         }
       }
@@ -618,11 +622,7 @@ export default function App() {
       if (res.status === 401) {
         const result = await res.json().catch(() => ({}));
         if (result.authError) {
-          localStorage.removeItem('google_access_token');
-          setAccessToken(null);
-          setOauthConnected(false);
-          showToast('Die Google Workspace-Sitzung ist abgelaufen oder ungültig. Bitte verbinden Sie sich erneut.', 'error');
-          setIsOauthModalOpen(true);
+          handleAuthError();
           return;
         }
       }
@@ -658,11 +658,7 @@ export default function App() {
       if (res.status === 401) {
         const result = await res.json().catch(() => ({}));
         if (result.authError) {
-          localStorage.removeItem('google_access_token');
-          setAccessToken(null);
-          setOauthConnected(false);
-          showToast('Die Google Workspace-Sitzung ist abgelaufen oder ungültig. Bitte verbinden Sie sich erneut.', 'error');
-          setIsOauthModalOpen(true);
+          handleAuthError();
           throw new Error("Bitte loggen Sie sich erneut in Google Workspace ein.");
         }
       }
@@ -702,11 +698,7 @@ export default function App() {
       });
 
       if (res.status === 401) {
-        localStorage.removeItem('google_access_token');
-        setAccessToken(null);
-        setOauthConnected(false);
-        showToast('Die Google Workspace-Sitzung ist abgelaufen oder ungültig. Bitte verbinden Sie sich erneut.', 'error');
-        setIsOauthModalOpen(true);
+        handleAuthError();
         return;
       }
 
@@ -747,11 +739,7 @@ export default function App() {
       });
 
       if (res.status === 401) {
-        localStorage.removeItem('google_access_token');
-        setAccessToken(null);
-        setOauthConnected(false);
-        showToast('Die Google Workspace-Sitzung ist abgelaufen oder ungültig. Bitte verbinden Sie sich erneut.', 'error');
-        setIsOauthModalOpen(true);
+        handleAuthError();
         return;
       }
 
@@ -1008,6 +996,7 @@ export default function App() {
                   onImportGoogleDoc={handleImportGoogleDoc}
                   isImportingDoc={isImportingDoc}
                   onUpdateProfile={handleUpdateProfile}
+                  onAuthError={handleAuthError}
                 />
               )}
             </div>

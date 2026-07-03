@@ -1104,9 +1104,11 @@ app.post('/api/gmail/send-inquiry', async (req, res) => {
   if (token && token.startsWith('Bearer ') && token.length > 15) {
     const accessToken = token.split(' ')[1];
     try {
+      // Base64 encode the email body to preserve German characters (ä, ö, ü, ß) perfectly
+      const base64Body = Buffer.from(text, 'utf8').toString('base64');
       // Encode subject using RFC 2047 for safe UTF-8 headers
       const encodedSubject = `=?utf-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
-      const rfcDetails = `To: ${toEmail}\r\nSubject: ${encodedSubject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset="utf-8"\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${text}`;
+      const rfcDetails = `To: ${toEmail}\r\nSubject: ${encodedSubject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset="utf-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Body}`;
       const base64Raw = Buffer.from(rfcDetails, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
       if (sendDirectly) {
@@ -1983,10 +1985,18 @@ app.get('/api/google-docs/list', async (req, res) => {
         const errText = await driveRes.text();
         console.warn("Drive API check during listing: Drive API might be unconfigured or unenabled in Google Console. Falling back to high-fidelity simulated documents gracefully. Response details: " + errText);
         
+        if (driveRes.status === 401 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials") || errText.includes("expired")) {
+          return res.status(401).json({ 
+            success: false, 
+            authError: true, 
+            error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
+          });
+        }
+
         let customErrorMessage = "";
         if (errText.includes("drive.googleapis.com") || errText.includes("disabled") || errText.includes("SERVICE_DISABLED")) {
           customErrorMessage = "Google Drive API is disabled. Please enable it in the Google Cloud Developer Console (project ID: 977679839511) to view real documents.";
-        } else if (driveRes.status === 401 || driveRes.status === 403) {
+        } else if (driveRes.status === 403) {
           customErrorMessage = "Authentication scope permission has been restricted. Ensure 'https://www.googleapis.com/auth/drive.readonly' and 'https://www.googleapis.com/auth/documents.readonly' are enabled.";
         } else {
           customErrorMessage = "Google Drive API returned an error. Using high-fidelity simulated documents.";
@@ -2031,6 +2041,13 @@ app.post('/api/google-docs/import', async (req, res) => {
       } else {
         const errText = await docsRes.text();
         console.warn("Docs fetch during import fell back gracefully: Docs API might be disabled or unauthorized. Falling back to high-fidelity simulated text. Details: " + errText);
+        if (docsRes.status === 401 || docsRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
+          return res.status(401).json({ 
+            success: false, 
+            authError: true, 
+            error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
+          });
+        }
       }
     } catch (err) {
       console.warn("Exception fetching Google Doc, falling back gracefully:", err);
