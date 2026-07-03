@@ -210,23 +210,6 @@ export default function ApartmentList({
                      </select>
                    </div>
 
-                   {/* Google Docs Cover Letter Creator */}
-                   <div className="mt-2.5 pt-2 border-t border-dashed border-slate-150 flex items-center justify-between gap-2.5">
-                     <div className="flex flex-col">
-                       <span className="font-semibold text-[7px] uppercase tracking-wider text-slate-400 font-mono">Dossier-Dokumente</span>
-                       <span className="text-[10px] text-slate-600 font-sans mt-0.5 font-medium">Bewerbungsschreiben entwerfen</span>
-                     </div>
-                     <button
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         onDraftGoogleDoc(apt.id);
-                       }}
-                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-xs cursor-pointer active:scale-95 text-sans font-semibold shrink-0"
-                     >
-                       <FileText className="w-3.5 h-3.5" />
-                       <span>In Google Docs erstellen</span>
-                     </button>
-                   </div>
                  </div>
               )}
             </div>

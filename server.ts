@@ -1012,6 +1012,37 @@ app.post('/api/gmail/archive-unrelated', async (req, res) => {
   }
 });
 
+function getZurichISOString(localDateTimeStr: string): string {
+  if (!localDateTimeStr) return '';
+  // If it already has offset or Z, return it
+  if (localDateTimeStr.includes('Z') || /[-+]\d{2}:\d{2}$/.test(localDateTimeStr)) {
+    return localDateTimeStr;
+  }
+  
+  // Clean up format to YYYY-MM-DDTHH:mm:ss
+  let clean = localDateTimeStr;
+  if (clean.length === 16) { // YYYY-MM-DDTHH:mm
+    clean += ":00";
+  }
+  
+  try {
+    const d = new Date(clean + 'Z');
+    const tzString = d.toLocaleString('en-US', { timeZone: 'Europe/Zurich' });
+    const localDate = new Date(tzString);
+    const diffMs = localDate.getTime() - d.getTime();
+    const diffMins = Math.round(diffMs / 60000);
+    const hoursOffset = Math.floor(Math.abs(diffMins) / 60);
+    const minsOffset = Math.abs(diffMins) % 60;
+    const sign = diffMins >= 0 ? '+' : '-';
+    const offsetStr = `${sign}${String(hoursOffset).padStart(2, '0')}:${String(minsOffset).padStart(2, '0')}`;
+    return `${clean}${offsetStr}`;
+  } catch (err) {
+    const month = parseInt(clean.substring(5, 7), 10);
+    const offset = (month >= 4 && month <= 10) ? '+02:00' : '+01:00';
+    return `${clean}${offset}`;
+  }
+}
+
 // Endpoint: POST create a calendar viewing event in local (and Google if token)
 app.post('/api/calendar/add-event', async (req, res) => {
   const { apartmentId, title, start, end, location } = req.body;
@@ -1020,10 +1051,13 @@ app.post('/api/calendar/add-event', async (req, res) => {
 
   let eventId = 'gcal_sim_' + Date.now();
 
+  const formattedStart = getZurichISOString(start);
+  const formattedEnd = getZurichISOString(end);
+
   if (token && token.startsWith('Bearer ') && token.length > 15) {
     const accessToken = token.split(' ')[1];
     try {
-      console.log("Writing calendar event to Google Calendar...");
+      console.log("Writing calendar event to Google Calendar with formatted times:", formattedStart, formattedEnd);
       const calRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
         method: "POST",
         headers: {
@@ -1034,8 +1068,8 @@ app.post('/api/calendar/add-event', async (req, res) => {
           summary: title,
           location: location,
           description: `Zürich Apartment Finder - viewing appointment for apartment id: ${apartmentId}`,
-          start: { dateTime: start, timeZone: 'Europe/Zurich' },
-          end: { dateTime: end, timeZone: 'Europe/Zurich' },
+          start: { dateTime: formattedStart, timeZone: 'Europe/Zurich' },
+          end: { dateTime: formattedEnd, timeZone: 'Europe/Zurich' },
           reminders: { useDefault: true }
         })
       });
