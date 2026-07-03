@@ -1,6 +1,6 @@
 import React from 'react';
 import { Apartment } from '../types';
-import { MapPin, HelpCircle } from 'lucide-react';
+import { MapPin, HelpCircle, ExternalLink } from 'lucide-react';
 
 interface ZurcherMapProps {
   apartments: Apartment[];
@@ -9,6 +9,8 @@ interface ZurcherMapProps {
 }
 
 export default function ZurcherMap({ apartments, selectedId, onSelect }: ZurcherMapProps) {
+  const selectedApt = selectedId ? apartments.find(apt => apt.id === selectedId) : null;
+
   // Schematic map coordinates calculation
   // Zürich center is around lat=47.37, lng=8.54
   // We can scale lat/lng to 500x380 SVG box
@@ -45,6 +47,32 @@ export default function ZurcherMap({ apartments, selectedId, onSelect }: Zurcher
       </div>
 
       <div className="relative flex-1 bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
+        {/* Floating selected apartment details card with link */}
+        {selectedApt && (
+          <div className="absolute top-2.5 right-2.5 z-10 max-w-[210px] bg-white/95 backdrop-blur-md border border-slate-200/80 p-2.5 rounded-xl shadow-md transition-all duration-200 text-3xs flex flex-col gap-1.5 animate-in fade-in-50 slide-in-from-top-1">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
+              <span className="text-[8px] font-bold uppercase tracking-wider text-indigo-600 font-mono">Ausgewählt</span>
+              <span className="text-[9px] font-extrabold text-slate-700 bg-slate-100 px-1 py-0.5 rounded-sm border border-slate-200">{selectedApt.score}% Match</span>
+            </div>
+            <h4 className="font-semibold text-slate-800 leading-tight truncate" title={selectedApt.title}>
+              {selectedApt.title}
+            </h4>
+            <div className="text-slate-500 font-mono flex flex-col gap-0.5">
+              <p className="font-bold">CHF {selectedApt.price.toLocaleString()}</p>
+              <p className="text-[8px]">{selectedApt.rooms} Zimmer | {selectedApt.area} m²</p>
+            </div>
+            <a
+              href={selectedApt.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-semibold text-white bg-slate-900 hover:bg-indigo-600 active:bg-indigo-700 py-1 px-2.5 rounded-lg transition-colors cursor-pointer text-center"
+            >
+              <span>Inserat öffnen</span>
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          </div>
+        )}
+
         {/* Schematic SVG Map */}
         <svg className="w-full h-full" viewBox="0 0 500 340" xmlns="http://www.w3.org/2000/svg">
           {/* Lake Zürich (Zürichsee) */}
@@ -104,6 +132,11 @@ export default function ZurcherMap({ apartments, selectedId, onSelect }: Zurcher
                 key={apt.id}
                 className="cursor-pointer group select-none transition-transform duration-200"
                 onClick={() => onSelect(apt)}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  window.open(apt.url, '_blank');
+                }}
+                title={`${apt.title} (Doppelklick für Website)`}
               >
                 {/* Visual pulse for search match */}
                 {isSelected && (
