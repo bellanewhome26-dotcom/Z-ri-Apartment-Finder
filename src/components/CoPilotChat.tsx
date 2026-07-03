@@ -329,7 +329,29 @@ export default function CoPilotChat({
                   <input
                     type="datetime-local"
                     value={eventStart}
-                    onChange={(e) => setEventStart(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEventStart(val);
+                      if (val) {
+                        try {
+                          const d = new Date(val);
+                          if (!isNaN(d.getTime())) {
+                            // Automatically set end time to 1 hour after start time
+                            const oneHourLater = new Date(d.getTime() + 60 * 60 * 1000);
+                            const year = oneHourLater.getFullYear();
+                            const month = String(oneHourLater.getMonth() + 1).padStart(2, '0');
+                            const day = String(oneHourLater.getDate()).padStart(2, '0');
+                            const hours = String(oneHourLater.getHours()).padStart(2, '0');
+                            const minutes = String(oneHourLater.getMinutes()).padStart(2, '0');
+                            setEventEnd(`${year}-${month}-${day}T${hours}:${minutes}`);
+                          } else {
+                            setEventEnd(val);
+                          }
+                        } catch (err) {
+                          setEventEnd(val);
+                        }
+                      }
+                    }}
                     className="bg-white border rounded-lg p-1.5 outline-none"
                   />
                 </label>
