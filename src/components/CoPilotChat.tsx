@@ -9,7 +9,7 @@ interface CoPilotChatProps {
   onSendMessage: (text: string) => Promise<void>;
   isChatting: boolean;
   onAddViewingEvent: (eventDetails: { apartmentId: string; title: string; start: string; end: string; location: string }) => Promise<void>;
-  onSendEmailInquiry: (emailDetails: { apartmentId: string; toEmail: string; subject: string; text: string; sendDirectly: boolean }) => Promise<void>;
+  onSendEmailInquiry: (emailDetails: { apartmentId: string; toEmail: string; subject: string; text: string; sendDirectly: boolean }) => Promise<any>;
 }
 
 export default function CoPilotChat({
@@ -105,14 +105,18 @@ export default function CoPilotChat({
   const handleSubmitEmail = async (sendDirectly: boolean) => {
     setIsSendingEmail(true);
     try {
-      await onSendEmailInquiry({
+      const result = await onSendEmailInquiry({
         apartmentId: activeApartment?.id || '',
         toEmail: draftTo,
         subject: draftSubject,
         text: draftText,
         sendDirectly
       });
-      setEmailOutcome(sendDirectly ? "E-Mail wurde erfolgreich direkt über bellanewhome26@gmail.com gesendet!" : "Entwurf wurde erfolgreich gespeichert.");
+      if (result && result.status) {
+        setEmailOutcome(result.status);
+      } else {
+        setEmailOutcome(sendDirectly ? "E-Mail wurde erfolgreich direkt über bellanewhome26@gmail.com gesendet!" : "Entwurf wurde erfolgreich gespeichert.");
+      }
     } catch (e: any) {
       setEmailOutcome("Problem bei der E-Mail-Integration: " + e.message);
     } finally {

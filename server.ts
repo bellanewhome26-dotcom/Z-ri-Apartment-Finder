@@ -1101,40 +1101,72 @@ app.post('/api/gmail/send-inquiry', async (req, res) => {
   let statusMessage = "Email drafted successfully!";
   let sentSuccess = false;
 
-  if (sendDirectly && token && token.startsWith('Bearer ') && token.length > 15) {
+  if (token && token.startsWith('Bearer ') && token.length > 15) {
     const accessToken = token.split(' ')[1];
     try {
-      console.log("Sending real inquiry email via Gmail API...");
       // Simple raw format RFC822 for Gmail API
       const rfcDetails = `To: ${toEmail}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset="utf-8"\r\nMIME-Version: 1.0\r\n\r\n${text}`;
       const base64Raw = Buffer.from(rfcDetails).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-      const gmailSendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-        method: "POST",
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ raw: base64Raw })
-      });
+      if (sendDirectly) {
+        console.log("Sending real inquiry email via Gmail API...");
+        const gmailSendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+          method: "POST",
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ raw: base64Raw })
+        });
 
-      if (gmailSendRes.ok) {
-        statusMessage = "Email sent successfully directly via bellanewhome26@gmail.com!";
-        sentSuccess = true;
-      } else {
-        const errText = await gmailSendRes.text();
-        console.warn("Gmail compose notification: send unsuccessful, re-auth check required. Status: " + gmailSendRes.status, errText);
-        if (gmailSendRes.status === 401 || gmailSendRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
-          return res.status(401).json({ 
-            success: false, 
-            authError: true, 
-            error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
-          });
+        if (gmailSendRes.ok) {
+          statusMessage = "E-Mail wurde erfolgreich direkt über bellanewhome26@gmail.com gesendet!";
+          sentSuccess = true;
+        } else {
+          const errText = await gmailSendRes.text();
+          console.warn("Gmail compose notification: send unsuccessful, re-auth check required. Status: " + gmailSendRes.status, errText);
+          if (gmailSendRes.status === 401 || gmailSendRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
+            return res.status(401).json({ 
+              success: false, 
+              authError: true, 
+              error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
+            });
+          }
+          statusMessage = "Draft created locally, could not deliver through Gmail API connection.";
         }
-        statusMessage = "Draft created locally, could not deliver through Gmail API connection.";
+      } else {
+        console.log("Creating real draft email via Gmail API...");
+        const gmailDraftRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+          method: "POST",
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: {
+              raw: base64Raw
+            }
+          })
+        });
+
+        if (gmailDraftRes.ok) {
+          statusMessage = "Der Entwurf wurde erfolgreich in Ihrem Gmail-Konto unter 'Entwürfe' gespeichert!";
+          sentSuccess = true;
+        } else {
+          const errText = await gmailDraftRes.text();
+          console.warn("Gmail draft creation: unsuccessful. Status: " + gmailDraftRes.status, errText);
+          if (gmailDraftRes.status === 401 || gmailDraftRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
+            return res.status(401).json({ 
+              success: false, 
+              authError: true, 
+              error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
+            });
+          }
+          statusMessage = "Entwurf lokal vorbereitet, konnte aber nicht in den Gmail 'Entwürfen' gespeichert werden.";
+        }
       }
     } catch (e: any) {
-      console.warn("Gmail deliver expected exception.", e);
+      console.warn("Gmail API operation exception.", e);
       const errMsg = e?.message || "";
       if (errMsg.includes("authError") || errMsg.includes("401") || errMsg.includes("403")) {
         return res.status(401).json({ 
@@ -1143,7 +1175,7 @@ app.post('/api/gmail/send-inquiry', async (req, res) => {
           error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." 
         });
       }
-      statusMessage = "Gmail connection error. Saved to draft logs.";
+      statusMessage = "Gmail connection error. Saved draft details locally.";
     }
   } else {
     // Simulated delivery
@@ -1151,7 +1183,7 @@ app.post('/api/gmail/send-inquiry', async (req, res) => {
       statusMessage = `Simulated message delivered safely to ${toEmail} from bellanewhome26@gmail.com! (Simulation active since no live login detected)`;
       sentSuccess = true;
     } else {
-      statusMessage = "Draft letter prepared and saved details.";
+      statusMessage = "Der Entwurf wurde lokal gespeichert und vorbereitet (Simulation aktiv).";
     }
   }
 

@@ -313,8 +313,8 @@ export default function App() {
       'https://www.googleapis.com/auth/gmail.send',
       'https://www.googleapis.com/auth/gmail.compose',
       'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/drive.readonly',
-      'https://www.googleapis.com/auth/documents.readonly'
+      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/documents'
     ].join(' ');
 
     const redirectUri = `${window.location.origin}/auth/callback`;
@@ -663,7 +663,7 @@ export default function App() {
           setOauthConnected(false);
           showToast('Die Google Workspace-Sitzung ist abgelaufen oder ungültig. Bitte verbinden Sie sich erneut.', 'error');
           setIsOauthModalOpen(true);
-          return;
+          throw new Error("Bitte loggen Sie sich erneut in Google Workspace ein.");
         }
       }
 
@@ -671,13 +671,19 @@ export default function App() {
         const result = await res.json();
         setDatabase(result.database);
         showToast(result.status, "success");
+        return result;
       } else {
         const errData = await res.json().catch(() => ({}));
-        showToast(errData.error || "Anschreiben konnte nicht gesendet werden.", "error");
+        const errMsg = errData.error || "Anschreiben konnte nicht gesendet werden.";
+        showToast(errMsg, "error");
+        throw new Error(errMsg);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast("Entwurf konnte nicht gespeichert werden.", "error");
+      if (!e.message?.includes("Google Workspace")) {
+        showToast("Entwurf konnte nicht gespeichert werden.", "error");
+      }
+      throw e;
     }
   };
 
