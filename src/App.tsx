@@ -1093,6 +1093,26 @@ export default function App() {
                         <li>Reload this page and try signing in again!</li>
                       </ol>
                     </div>
+
+                    <div className="pt-2 border-t border-slate-200 text-[10px] font-sans text-slate-500">
+                      <p className="font-bold text-amber-600 flex items-center gap-1">
+                        <span>💡</span> WICHTIG: Gmail Fehler 401 beheben / "Fehler beim Auslesen von Gmail"
+                      </p>
+                      <p className="leading-snug mt-1 font-sans">
+                        Wenn die Anmeldung funktioniert, aber danach Fehler 401 auftritt, liegt das meistens an einer dieser zwei Ursachen:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 mt-1.5 pl-0.5 font-sans text-slate-600">
+                        <li>
+                          <strong className="text-amber-800">1. Häkchen nicht gesetzt (Sehr häufig):</strong> Beim Anmeldefenster von Google müssen Sie im zweiten Schritt <strong>die Kontrollkästchen für alle angeforderten Berechtigungen manuell aktivieren</strong> (z.B. E-Mails lesen, Kalendereinträge schreiben, etc.). Wenn Sie die Häkchen weglassen, erhalten wir keine Zugriffsrechte!
+                        </li>
+                        <li>
+                          <strong className="text-amber-800">2. Gmail API in Google Cloud inaktiv:</strong> Suchen Sie in der Google Cloud Console oben nach <strong className="text-slate-700">"Gmail API"</strong> und stellen Sie sicher, dass sie für Ihr Projekt **aktiviert** ist. Tun Sie das Gleiche auch für die <strong className="text-slate-700">"Google Calendar API"</strong>.
+                        </li>
+                        <li>
+                          <strong className="text-amber-800">3. Testuser eintragen:</strong> Solange Ihre App in Google Cloud im Status "Testing" ist, müssen Sie Ihre E-Mail <code className="bg-slate-100 px-1 rounded select-all font-mono">bellanewhome26@gmail.com</code> unter "OAuth-Zustimmungsbildschirm" → "Testbenutzer" eingetragen haben.
+                        </li>
+                      </ul>
+                    </div>
                   </div>
 
                   <button
