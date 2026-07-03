@@ -130,9 +130,17 @@ export default function ApartmentList({
                     >
                       {/* Name / Location */}
                       <td className="py-2.5 px-3 max-w-[200px]">
-                        <div className="font-semibold text-slate-800 truncate leading-tight" title={apt.title}>
-                          {apt.title}
-                        </div>
+                        <a 
+                          href={apt.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors truncate leading-tight flex items-center gap-1 cursor-pointer"
+                          title={apt.title}
+                        >
+                          <span className="truncate">{apt.title}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0 text-slate-400" />
+                        </a>
                         <div className="text-3xs text-slate-400 truncate flex items-center gap-0.5 mt-0.5" title={apt.address}>
                           <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
                           <span>{apt.address}</span>
@@ -302,7 +310,7 @@ export default function ApartmentList({
               >
                 <div className="flex items-start justify-between gap-3">
                   {/* Source & Title */}
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-3xs font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-mono">
                         {apt.source} Alert
@@ -312,7 +320,16 @@ export default function ApartmentList({
                       </span>
                     </div>
                     <h4 className="font-display font-bold text-slate-800 text-sm mt-1 leading-snug">
-                      {apt.title}
+                      <a 
+                        href={apt.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-pointer"
+                      >
+                        <span>{apt.title}</span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                      </a>
                     </h4>
                     <p className="text-xs text-slate-500 flex items-center gap-1 mt-1 font-sans">
                       <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
