@@ -146,34 +146,34 @@ export default function CoPilotChat({
     <div className="flex flex-col flex-1 h-full min-h-[480px]">
       <div className="border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
         <div>
-          <h3 className="font-display font-semibold text-slate-800 text-sm flex items-center gap-1.5">
+          <h3 className="font-display font-semibold text-slate-800 text-[11px] flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-amber-500 animate-pulse shrink-0" />
             <span>Zürcher KI-Wohnungsassistent</span>
           </h3>
-          <p className="text-3xs text-slate-400 font-sans mt-0.5">Berechnet Steuerfuss, S-Bahn-Linien & Schweizer Vorgaben</p>
+          <p className="text-[10px] text-slate-400 font-sans mt-0.5">Berechnet Steuerfuss, S-Bahn-Linien & Schweizer Vorgaben</p>
         </div>
         {activeApartment && (
-          <span className="text-4xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+          <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
             Fokus: {activeApartment.title.substring(0, 16)}...
           </span>
         )}
       </div>
 
       {/* Chat pane */}
-      <div className="flex-1 overflow-y-auto space-y-4 max-h-[340px] border border-slate-100 bg-slate-50 p-4 rounded-xl mb-4 text-xs">
+      <div className="flex-1 overflow-y-auto space-y-4 max-h-[340px] border border-slate-100 bg-slate-50 p-4 rounded-xl mb-4 text-[11px]">
         {data.chatHistory.map((msg) => {
           const isUser = msg.role === 'user';
           return (
             <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 leading-relaxed ${
+              <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 leading-relaxed text-[11px] ${
                 isUser 
                   ? 'bg-slate-900 border border-slate-850 text-white rounded-br-none font-sans' 
                   : 'bg-white border border-slate-100 text-slate-800 rounded-bl-none shadow-2xs font-sans'
               }`}>
                 {/* Text body */}
-                <div className="whitespace-pre-wrap">{msg.text}</div>
+                <div className="whitespace-pre-wrap text-[11px]">{msg.text}</div>
 
-                <div className={`text-[7pt] font-mono mt-1 ${isUser ? 'text-slate-400 text-right' : 'text-slate-400'}`}>
+                <div className={`text-[9px] font-mono mt-1 ${isUser ? 'text-slate-400 text-right' : 'text-slate-400'}`}>
                   {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
@@ -183,9 +183,9 @@ export default function CoPilotChat({
 
         {isChatting && (
           <div className="flex justify-start">
-            <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-none px-4 py-3 flex items-center gap-2 text-slate-500 shadow-2xs">
+            <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-none px-4 py-3 flex items-center gap-2 text-slate-500 shadow-2xs text-[11px]">
               <Loader2 className="w-4 h-4 text-indigo-500 animate-spin shrink-0" />
-              <span className="font-medium animate-pulse text-3xs font-mono uppercase tracking-wider">Analysiere Dokumente & Steuerfuss-Ersparnisse...</span>
+              <span className="font-medium animate-pulse text-[10px] font-mono uppercase tracking-wider">Analysiere Dokumente & Steuerfuss-Ersparnisse...</span>
             </div>
           </div>
         )}
@@ -195,7 +195,7 @@ export default function CoPilotChat({
       {/* Suggested Actions panel */}
       {activeApartment && !activeAction && (
         <div className="mb-4">
-          <p className="text-3xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Empfohlene KI-Aktionen:</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">Empfohlene KI-Aktionen:</p>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => handleOpenAction({
@@ -206,7 +206,7 @@ export default function CoPilotChat({
                   text: `Sehr geehrte Vermietung,\n\nich bewerbe mich mit grossem Interesse für die Wohnung "${activeApartment.title}" in ${activeApartment.address}...\n\nMit freundlichen Grüssen,\nBella`
                 }
               })}
-              className="flex items-center gap-1.5 text-2xs bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-700 font-semibold px-3 py-1.5 rounded-lg select-none transition-all duration-150 animate-fade-in"
+              className="flex items-center gap-1.5 text-[11px] bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-700 font-semibold px-3 py-1.5 rounded-lg select-none transition-all duration-150 animate-fade-in cursor-pointer"
             >
               <Mail className="w-3.5 h-3.5" />
               E-Mail an Vermieter verfassen
@@ -221,7 +221,7 @@ export default function CoPilotChat({
                   location: activeApartment.address
                 }
               })}
-              className="flex items-center gap-1.5 text-2xs bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-semibold px-3 py-1.5 rounded-lg select-none transition-all duration-150 animate-fade-in"
+              className="flex items-center gap-1.5 text-[11px] bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-semibold px-3 py-1.5 rounded-lg select-none transition-all duration-150 animate-fade-in cursor-pointer"
             >
               <Calendar className="w-3.5 h-3.5" />
               Besichtigung im Kalender eintragen
@@ -230,29 +230,67 @@ export default function CoPilotChat({
         </div>
       )}
 
-      {/* Action configuration popup / box view inside chat */}
+      {/* Presets and entry field */}
+      {!activeAction && (
+        <div className="mb-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">KI-Schnellaktionen:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {presets.slice(0, activeApartment ? 4 : 2).map((p, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handlePresetClick(p.prompt)}
+                disabled={isChatting}
+                className="text-left select-none text-[11px] text-slate-600 bg-white hover:bg-slate-50 border border-slate-100 p-2 rounded-lg font-medium transition-all duration-150 truncate shrink-0 disabled:opacity-50 cursor-pointer"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSend} className="flex gap-2 shrink-0 mb-4">
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          disabled={isChatting}
+          placeholder={activeApartment ? `Fragen Sie mich über "${activeApartment.title}"...` : "Gemeindesteuerfuss, Pendelzeiten oder Bewerbungsunterlagen vergleichen..."}
+          className="flex-1 bg-white border border-slate-200 focus:border-slate-800 outline-none rounded-xl px-3.5 py-2.5 text-[11px] font-sans disabled:bg-slate-100/60 transition-all duration-150"
+        />
+        <button
+          type="submit"
+          disabled={!inputText.trim() || isChatting}
+          className="bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white p-2.5 px-4 rounded-xl flex items-center justify-center select-none cursor-pointer transition-all duration-150 shrink-0"
+        >
+          <Send className="w-4 h-4 shrink-0" />
+        </button>
+      </form>
+
+      {/* Action configuration popup / box view (Agent's Action Output Window - placed AFTER the chat window) */}
       {activeAction && (
-        <div className="border border-indigo-150 bg-indigo-50/40 p-4 rounded-xl mb-4 font-sans text-slate-700">
+        <div className="border border-indigo-150 bg-indigo-50/40 p-4 rounded-xl mb-4 font-sans text-slate-700 text-[11px] animate-fade-in">
           <div className="flex items-center justify-between mb-3 border-b border-indigo-100 pb-2">
-            <span className="text-2xs font-extrabold uppercase tracking-wider text-indigo-700 font-mono flex items-center gap-1.5">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-700 font-mono flex items-center gap-1.5">
               {activeAction.type === 'COMPOSE_EMAIL' ? <Mail className="w-3.5 h-3.5" /> : <Calendar className="w-3.5 h-3.5" />}
               {activeAction.type === 'COMPOSE_EMAIL' ? 'Bewerbungsanfrage prüfen' : 'Besichtigung in Zürich planen'}
             </span>
-            <button onClick={() => setActiveAction(null)} className="text-3xs font-semibold text-slate-400 hover:text-slate-600">
+            <button onClick={() => setActiveAction(null)} className="text-[10px] font-semibold text-slate-400 hover:text-slate-600 cursor-pointer">
               Schliessen
             </button>
           </div>
 
           {activeAction.type === 'COMPOSE_EMAIL' ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-2xs">
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <label className="flex flex-col">
                   <span className="text-slate-400 font-medium mb-1">An:</span>
                   <input
                     type="email"
                     value={draftTo}
                     onChange={(e) => setDraftTo(e.target.value)}
-                    className="bg-white border rounded-lg p-1.5 outline-none"
+                    className="bg-white border rounded-lg p-1.5 outline-none text-[11px]"
                   />
                 </label>
                 <label className="flex flex-col">
@@ -261,38 +299,40 @@ export default function CoPilotChat({
                     type="text"
                     value={draftSubject}
                     onChange={(e) => setDraftSubject(e.target.value)}
-                    className="bg-white border rounded-lg p-1.5 outline-none truncate"
+                    className="bg-white border rounded-lg p-1.5 outline-none truncate text-[11px]"
                   />
                 </label>
               </div>
 
-              <label className="flex flex-col text-2xs">
+              <label className="flex flex-col text-[11px]">
                 <span className="text-slate-400 font-medium mb-1">Anschreiben (Hochdeutsch):</span>
                 <textarea
                   value={draftText}
                   onChange={(e) => setDraftText(e.target.value)}
-                  className="bg-white border rounded-lg p-2 resize-none outline-none font-mono text-[8pt]"
+                  className="bg-white border rounded-lg p-2 resize-none outline-none font-mono text-[11px]"
                   rows={6}
                 />
               </label>
 
               {emailOutcome ? (
-                <p className="text-2xs text-emerald-800 bg-emerald-50 border border-emerald-100 p-2 rounded-lg font-medium flex items-center gap-1.5">
+                <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-100 p-2 rounded-lg font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> {emailOutcome}
                 </p>
               ) : (
-                <div className="flex justify-end gap-2 text-2xs">
+                <div className="flex justify-end gap-2 text-[11px]">
                   <button
+                    type="button"
                     onClick={() => handleSubmitEmail(false)}
                     disabled={isSendingEmail}
-                    className="bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg select-none font-semibold hover:bg-slate-50 cursor-pointer"
+                    className="bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg select-none font-semibold hover:bg-slate-50 cursor-pointer text-[11px]"
                   >
                     Entwurf speichern
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleSubmitEmail(true)}
                     disabled={isSendingEmail}
-                    className="bg-indigo-600 border border-indigo-500 text-white px-3 py-1.5 rounded-lg select-none font-semibold hover:bg-indigo-500 flex items-center gap-1 cursor-pointer"
+                    className="bg-indigo-600 border border-indigo-500 text-white px-3 py-1.5 rounded-lg select-none font-semibold hover:bg-indigo-500 flex items-center gap-1 cursor-pointer text-[11px]"
                   >
                     {isSendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                     Direkt via Gmail senden
@@ -301,7 +341,7 @@ export default function CoPilotChat({
               )}
             </div>
           ) : (
-            <div className="space-y-3 text-2xs">
+            <div className="space-y-3 text-[11px]">
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col">
                   <span className="text-slate-400 font-medium mb-1">Terminbezeichnung:</span>
@@ -309,7 +349,7 @@ export default function CoPilotChat({
                     type="text"
                     value={eventTitle}
                     onChange={(e) => setEventTitle(e.target.value)}
-                    className="bg-white border rounded-lg p-1.5 outline-none"
+                    className="bg-white border rounded-lg p-1.5 outline-none text-[11px]"
                   />
                 </label>
                 <label className="flex flex-col">
@@ -318,7 +358,7 @@ export default function CoPilotChat({
                     type="text"
                     value={eventLocation}
                     onChange={(e) => setEventLocation(e.target.value)}
-                    className="bg-white border rounded-lg p-1.5 outline-none"
+                    className="bg-white border rounded-lg p-1.5 outline-none text-[11px]"
                   />
                 </label>
               </div>
@@ -336,7 +376,6 @@ export default function CoPilotChat({
                         try {
                           const d = new Date(val);
                           if (!isNaN(d.getTime())) {
-                            // Automatically set end time to 1 hour after start time
                             const oneHourLater = new Date(d.getTime() + 60 * 60 * 1000);
                             const year = oneHourLater.getFullYear();
                             const month = String(oneHourLater.getMonth() + 1).padStart(2, '0');
@@ -352,7 +391,7 @@ export default function CoPilotChat({
                         }
                       }
                     }}
-                    className="bg-white border rounded-lg p-1.5 outline-none"
+                    className="bg-white border rounded-lg p-1.5 outline-none text-[11px]"
                   />
                 </label>
                 <label className="flex flex-col">
@@ -361,21 +400,22 @@ export default function CoPilotChat({
                     type="datetime-local"
                     value={eventEnd}
                     onChange={(e) => setEventEnd(e.target.value)}
-                    className="bg-white border rounded-lg p-1.5 outline-none"
+                    className="bg-white border rounded-lg p-1.5 outline-none text-[11px]"
                   />
                 </label>
               </div>
 
               {eventOutcome ? (
-                <p className="text-2xs text-emerald-800 bg-emerald-50 border border-emerald-100 p-2 rounded-lg font-medium flex items-center gap-1.5">
+                <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-100 p-2 rounded-lg font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> {eventOutcome}
                 </p>
               ) : (
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 text-[11px]">
                   <button
+                    type="button"
                     onClick={handleSubmitEvent}
                     disabled={isCreatingEvent}
-                    className="bg-emerald-600 text-white rounded-lg px-3 py-1.5 font-semibold hover:bg-emerald-500 select-none flex items-center gap-1 cursor-pointer"
+                    className="bg-emerald-600 text-white rounded-lg px-3 py-1.5 font-semibold hover:bg-emerald-500 select-none flex items-center gap-1 cursor-pointer text-[11px]"
                   >
                     {isCreatingEvent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                     Im Google Kalender eintragen
@@ -386,44 +426,6 @@ export default function CoPilotChat({
           )}
         </div>
       )}
-
-      {/* Presets and entry field */}
-      {!activeAction && (
-        <div className="mb-4">
-          <p className="text-3xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">KI-Schnellaktionen:</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {presets.slice(0, activeApartment ? 4 : 2).map((p, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handlePresetClick(p.prompt)}
-                disabled={isChatting}
-                className="text-left select-none text-2xs text-slate-600 bg-white hover:bg-slate-50 border border-slate-100 p-2 rounded-lg font-medium transition-all duration-150 truncate shrink-0 disabled:opacity-50"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSend} className="flex gap-2 shrink-0">
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          disabled={isChatting}
-          placeholder={activeApartment ? `Fragen Sie mich über "${activeApartment.title}"...` : "Gemeindesteuerfuss, Pendelzeiten oder Bewerbungsunterlagen vergleichen..."}
-          className="flex-1 bg-white border border-slate-200 focus:border-slate-800 outline-none rounded-xl px-3.5 py-2.5 text-xs font-sans disabled:bg-slate-100/60 transition-all duration-150"
-        />
-        <button
-          type="submit"
-          disabled={!inputText.trim() || isChatting}
-          className="bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white p-2.5 px-4 rounded-xl flex items-center justify-center select-none cursor-pointer transition-all duration-150 shrink-0"
-        >
-          <Send className="w-4 h-4 shrink-0" />
-        </button>
-      </form>
     </div>
   );
 }

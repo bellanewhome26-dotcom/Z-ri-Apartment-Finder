@@ -1048,7 +1048,7 @@ app.post('/api/fetch-emails', async (req, res) => {
   } catch (apiErr: any) {
     console.warn("Expected notification: Gmail API fetch resulted in error/expiration:", apiErr);
     const errMsg = apiErr?.message || "";
-    if (errMsg.includes("401") || errMsg.includes("403")) {
+    if (errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("authError") || errMsg.includes("invalid_grant") || errMsg.includes("invalid_token") || errMsg.includes("Invalid Credentials")) {
       return res.status(401).json({
         success: false,
         authError: true,
@@ -1066,7 +1066,11 @@ app.post('/api/gmail/archive-unrelated', async (req, res) => {
   const db = readDb();
 
   if (!token || !token.startsWith('Bearer ') || token.length < 15) {
-    return res.status(401).json({ success: false, error: "Bitte verbinden Sie sich zuerst mit Ihrem aktiven Google-Konto." });
+    return res.status(401).json({
+      success: false,
+      authError: true,
+      error: "Bitte verbinden Sie sich zuerst mit Ihrem aktiven Google-Konto."
+    });
   }
 
   if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
@@ -1096,7 +1100,15 @@ app.post('/api/gmail/archive-unrelated', async (req, res) => {
         // Remove from local database lists as well so it's instantly cleared!
         db.emails = db.emails.filter(e => e.id !== emailId);
       } else {
-        console.warn(`Could not modify/archive Gmail message ${emailId}. Code: ${modRes.status}`);
+        const errText = await modRes.text();
+        console.warn(`Could not modify/archive Gmail message ${emailId}. Code: ${modRes.status}`, errText);
+        if (modRes.status === 401 || modRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
+          return res.status(401).json({
+            success: false,
+            authError: true,
+            error: "Google Workspace session has expired or is unauthorized. Please re-authenticate."
+          });
+        }
       }
     }
 
@@ -1108,6 +1120,14 @@ app.post('/api/gmail/archive-unrelated', async (req, res) => {
     });
   } catch (err: any) {
     console.error("Failed to batch modify/archive Gmail messages", err);
+    const errMsg = err?.message || "";
+    if (errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("authError") || errMsg.includes("invalid_grant") || errMsg.includes("invalid_token") || errMsg.includes("Invalid Credentials")) {
+      return res.status(401).json({
+        success: false,
+        authError: true,
+        error: "Google Workspace-Sitzung abgelaufen oder ungültig. Bitte im Einstellungsmenü neu verbinden."
+      });
+    }
     return res.status(500).json({ success: false, error: err.message || "Archive-Vorgang fehlgeschlagen." });
   }
 });
@@ -2303,12 +2323,16 @@ app.post('/api/google-docs/create-letter', async (req, res) => {
       } else {
         const errText = await createRes.text();
         console.warn("Google Docs creation warning/handled status:", errText);
-        if (createRes.status === 401 || createRes.status === 403) {
+        if (createRes.status === 401 || createRes.status === 403 || errText.includes("authError") || errText.includes("invalid_grant") || errText.includes("invalid_token") || errText.includes("Invalid Credentials")) {
           return res.status(401).json({ success: false, authError: true, error: "Authentication expired. Please link Google Workspace again." });
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Exception creating Google Doc letter (handled):", err);
+      const errMsg = err?.message || "";
+      if (errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("authError") || errMsg.includes("invalid_grant") || errMsg.includes("invalid_token") || errMsg.includes("Invalid Credentials")) {
+        return res.status(401).json({ success: false, authError: true, error: "Google Workspace session has expired or is unauthorized. Please re-authenticate." });
+      }
     }
   }
   

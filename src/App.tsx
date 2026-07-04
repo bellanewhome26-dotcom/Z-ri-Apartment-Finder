@@ -877,6 +877,19 @@ export default function App() {
           selectedApartment={activeApartment}
         />
 
+        {/* AI Co-Pilot Agent: Placed between stats widgets and map/listings */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex flex-col mb-6">
+          <CoPilotChat
+            data={database}
+            activeApartment={activeApartment}
+            selectedApartmentId={selectedApartmentId}
+            onSendMessage={handleSendMessage}
+            isChatting={isChatting}
+            onAddViewingEvent={handleAddViewingEvent}
+            onSendEmailInquiry={handleSendEmailInquiry}
+          />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
           {/* LEFT 3/4 PANEL: Registry List + Schematic Map */}
           <div className="lg:col-span-2 flex flex-col gap-6">
@@ -947,58 +960,32 @@ export default function App() {
             </div>
           </div>
 
-          {/* RIGHT 2/4 RESIZABLE PANEL: AI Co-Pilot & Dossier */}
+          {/* RIGHT 2/4 PANEL: Dedicated Dossier Manager */}
           <div className="lg:col-span-2 flex flex-col gap-6">
             
-            {/* Side-by-side tabs inside workpane */}
+            {/* Bewerbungsdossier Panel */}
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex flex-col h-full min-h-[580px]">
-              <div className="flex border-b border-slate-100 mb-4 text-xs font-semibold select-none">
-                <button
-                  onClick={() => setActiveRightTab('chat')}
-                  className={`pb-2.5 px-4 relative flex items-center gap-1.5 ${
-                    activeRightTab === 'chat' ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 animate-pulse text-indigo-500" />
-                  <span>KI-Wohnungsassistent</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveRightTab('dossier')}
-                  className={`pb-2.5 px-4 relative flex items-center gap-1.5 ${
-                    activeRightTab === 'dossier' ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Bewerbungsdossier</span>
-                  <span className="bg-slate-100 text-slate-600 text-[9px] px-1.5 py-0.5 rounded-full font-mono">
+              <div className="border-b border-slate-100 pb-3 mb-4 select-none">
+                <h3 className="font-display font-semibold text-slate-800 text-sm flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>Bewerbungsdossier & Dokumente</span>
+                  <span className="bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 rounded-full font-mono">
                     {database.files.length}
                   </span>
-                </button>
+                </h3>
+                <p className="text-3xs text-slate-400 font-sans mt-0.5">Laden Sie Ihren Betreibungsauszug, Lebenslauf & Ausweise hoch</p>
               </div>
 
-              {activeRightTab === 'chat' ? (
-                <CoPilotChat
-                  data={database}
-                  activeApartment={activeApartment}
-                  selectedApartmentId={selectedApartmentId}
-                  onSendMessage={handleSendMessage}
-                  isChatting={isChatting}
-                  onAddViewingEvent={handleAddViewingEvent}
-                  onSendEmailInquiry={handleSendEmailInquiry}
-                />
-              ) : (
-                <DossierManager
-                  data={database}
-                  onUploadFile={handleUploadFile}
-                  isUploading={isUploading}
-                  accessToken={accessToken}
-                  onImportGoogleDoc={handleImportGoogleDoc}
-                  isImportingDoc={isImportingDoc}
-                  onUpdateProfile={handleUpdateProfile}
-                  onAuthError={handleAuthError}
-                />
-              )}
+              <DossierManager
+                data={database}
+                onUploadFile={handleUploadFile}
+                isUploading={isUploading}
+                accessToken={accessToken}
+                onImportGoogleDoc={handleImportGoogleDoc}
+                isImportingDoc={isImportingDoc}
+                onUpdateProfile={handleUpdateProfile}
+                onAuthError={handleAuthError}
+              />
             </div>
 
             {/* Utility Admin operations (Reset) */}
